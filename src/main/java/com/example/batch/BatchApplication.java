@@ -2,6 +2,7 @@ package com.example.batch;
 
 import com.example.batch.incrementer.DailyJobTimestamper;
 import com.example.batch.listener.JobLoggerListener;
+import com.example.batch.step.tasklet.HelloWorld;
 import com.example.batch.validator.ParameterValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -65,19 +66,8 @@ public class BatchApplication {
     @Bean
     public Step step1() {
         return this.stepBuilderFactory.get("step1")
-                .tasklet(helloWorldTasklet(null))
+                .tasklet(new HelloWorld())
                 .build();
-    }
-
-    @StepScope
-    @Bean
-    public Tasklet helloWorldTasklet(
-            @Value("#{jobParameters['name']}") String name
-    ) {
-        return ((contribution, chunkContext) -> {
-            System.out.printf("Hello, %s!%n", name);
-            return RepeatStatus.FINISHED;
-        });
     }
 
     public static void main(String[] args) {
