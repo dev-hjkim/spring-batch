@@ -11,7 +11,7 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.CompositeJobParametersValidator;
 import org.springframework.batch.core.job.DefaultJobParametersValidator;
-import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.listener.JobListenerFactoryBean;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +57,8 @@ public class BatchApplication {
                 .start(step1())
                 .validator(validator())
                 .incrementer(new DailyJobTimestamper())
-                .listener(new JobLoggerListener())
+                .listener(JobListenerFactoryBean.getListener(
+                        new JobLoggerListener()))
                 .build();
     }
 
