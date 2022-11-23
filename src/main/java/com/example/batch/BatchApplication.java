@@ -1,6 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.incrementer.DailyJobTimestamper;
+import com.example.batch.listener.JobLoggerListener;
 import com.example.batch.validator.ParameterValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -56,6 +57,7 @@ public class BatchApplication {
                 .start(step1())
                 .validator(validator())
                 .incrementer(new DailyJobTimestamper())
+                .listener(new JobLoggerListener())
                 .build();
     }
 
