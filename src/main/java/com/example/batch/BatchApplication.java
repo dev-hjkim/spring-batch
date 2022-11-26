@@ -18,6 +18,7 @@ import org.springframework.batch.core.listener.ExecutionContextPromotionListener
 import org.springframework.batch.core.listener.JobListenerFactoryBean;
 import org.springframework.batch.core.step.tasklet.CallableTaskletAdapter;
 import org.springframework.batch.core.step.tasklet.MethodInvokingTaskletAdapter;
+import org.springframework.batch.core.step.tasklet.SystemCommandTasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,7 +61,7 @@ public class BatchApplication {
     @Bean
     public Job job() {
         return this.jobBuilderFactory.get("basicJob")
-                .start(methodInvokingStep())
+                .start(systemCommandStep())
                 .validator(validator())
                 .incrementer(new DailyJobTimestamper())
                 .listener(JobListenerFactoryBean.getListener(
@@ -92,6 +93,13 @@ public class BatchApplication {
     }
 
     @Bean
+    public Step systemCommandStep() {
+        return this.stepBuilderFactory.get("systemCommandStep")
+                .tasklet(systemCommandTasklet())
+                .build();
+    }
+
+    @Bean
     public StepExecutionListener promotionListener() {
         ExecutionContextPromotionListener listener
                 = new ExecutionContextPromotionListener();
@@ -111,6 +119,14 @@ public class BatchApplication {
         return callableTaskletAdapter;
     }
 
+    @Bean
+    public Callable<RepeatStatus> callableObject() {
+        return () -> {
+            System.out.println("This was executed in another thread");
+            return RepeatStatus.FINISHED;
+        };
+    }
+
     @StepScope
     @Bean
     public MethodInvokingTaskletAdapter methodInvokingTasklet(
@@ -127,11 +143,14 @@ public class BatchApplication {
     }
 
     @Bean
-    public Callable<RepeatStatus> callableObject() {
-        return () -> {
-            System.out.println("This was executed in another thread");
-            return RepeatStatus.FINISHED;
-        };
+    public SystemCommandTasklet systemCommandTasklet() {
+        SystemCommandTasklet systemCommandTasklet = new SystemCommandTasklet();
+
+        systemCommandTasklet.setCommand("rm -rf /tmp.txt");
+        systemCommandTasklet.setTimeout(5000);
+        systemCommandTasklet.setInterruptOnCancel(true);
+
+        return systemCommandTasklet;
     }
 
     @Bean
