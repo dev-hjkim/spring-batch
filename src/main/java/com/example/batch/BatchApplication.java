@@ -2,6 +2,7 @@ package com.example.batch;
 
 import com.example.batch.incrementer.DailyJobTimestamper;
 import com.example.batch.listener.JobLoggerListener;
+import com.example.batch.service.CustomService;
 import com.example.batch.step.tasklet.HelloWorld;
 import com.example.batch.validator.ParameterValidator;
 import org.springframework.batch.core.Job;
@@ -15,6 +16,7 @@ import org.springframework.batch.core.job.DefaultJobParametersValidator;
 import org.springframework.batch.core.listener.ExecutionContextPromotionListener;
 import org.springframework.batch.core.listener.JobListenerFactoryBean;
 import org.springframework.batch.core.step.tasklet.CallableTaskletAdapter;
+import org.springframework.batch.core.step.tasklet.MethodInvokingTaskletAdapter;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -56,7 +58,7 @@ public class BatchApplication {
     @Bean
     public Job job() {
         return this.jobBuilderFactory.get("basicJob")
-                .start(callableStep())
+                .start(methodInvokingStep())
                 .validator(validator())
                 .incrementer(new DailyJobTimestamper())
                 .listener(JobListenerFactoryBean.getListener(
@@ -73,6 +75,21 @@ public class BatchApplication {
     }
 
     @Bean
+    public Step callableStep() {
+        return this.stepBuilderFactory.get("callableStep")
+                .tasklet(tasklet())
+                .build();
+    }
+
+
+    @Bean
+    public Step methodInvokingStep() {
+        return this.stepBuilderFactory.get("methodInvokingStep")
+                .tasklet(methodInvokingTasklet())
+                .build();
+    }
+
+    @Bean
     public StepExecutionListener promotionListener() {
         ExecutionContextPromotionListener listener
                 = new ExecutionContextPromotionListener();
@@ -83,10 +100,24 @@ public class BatchApplication {
     }
 
     @Bean
-    public Step callableStep() {
-        return this.stepBuilderFactory.get("callableStep")
-                .tasklet(tasklet())
-                .build();
+    public CallableTaskletAdapter tasklet() {
+        CallableTaskletAdapter callableTaskletAdapter =
+                new CallableTaskletAdapter();
+
+        callableTaskletAdapter.setCallable(callableObject());
+
+        return callableTaskletAdapter;
+    }
+
+    @Bean
+    public MethodInvokingTaskletAdapter methodInvokingTasklet() {
+        MethodInvokingTaskletAdapter methodInvokingTaskletAdapter =
+                new MethodInvokingTaskletAdapter();
+
+        methodInvokingTaskletAdapter.setTargetObject(service());
+        methodInvokingTaskletAdapter.setTargetMethod("serviceMethod");
+
+        return methodInvokingTaskletAdapter;
     }
 
     @Bean
@@ -98,13 +129,8 @@ public class BatchApplication {
     }
 
     @Bean
-    public CallableTaskletAdapter tasklet() {
-        CallableTaskletAdapter callableTaskletAdapter =
-                new CallableTaskletAdapter();
-
-        callableTaskletAdapter.setCallable(callableObject());
-
-        return callableTaskletAdapter;
+    public CustomService service() {
+        return new CustomService();
     }
 
     public static void main(String[] args) {
