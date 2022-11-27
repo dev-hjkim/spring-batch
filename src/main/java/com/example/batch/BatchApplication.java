@@ -1,6 +1,5 @@
 package com.example.batch;
 
-import com.example.batch.step.decider.RandomDecider;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -8,7 +7,6 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.flow.Flow;
-import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,9 +67,15 @@ public class BatchApplication {
     @Bean
     public Job conditionalStepLogicJob() {
         return this.jobBuilderFactory.get("conditionalStepLogicJob")
-                .start(preProcessingFlow())
+                .start(initializeBatch())
                 .next(runBatch())
-                .end()
+                .build();
+    }
+
+    @Bean
+    public Step initializeBatch() {
+        return this.stepBuilderFactory.get("initializeBatch")
+                .flow(preProcessingFlow())
                 .build();
     }
 
