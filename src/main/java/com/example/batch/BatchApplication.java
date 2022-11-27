@@ -53,7 +53,7 @@ public class BatchApplication {
                 .start(firstStep())
                 .next(decider())
                 .from(decider())
-                .on("FAILED").to(failureStep())
+                .on("FAILED").stopAndRestart(successStep())
                 .from(decider())
                 .on("*").to(successStep())
                 .end()
