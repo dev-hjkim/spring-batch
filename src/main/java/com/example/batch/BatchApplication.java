@@ -5,8 +5,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.job.builder.FlowBuilder;
-import org.springframework.batch.core.job.flow.Flow;
+import org.springframework.batch.core.step.job.DefaultJobParametersExtractor;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,8 +56,9 @@ public class BatchApplication {
     }
 
     @Bean
-    public Flow preProcessingFlow() {
-        return new FlowBuilder<Flow>("preProcessingFlow").start(loadFileStep())
+    public Job preProcessingJob() {
+        return this.jobBuilderFactory.get("preProcessingJob")
+                .start(loadFileStep())
                 .next(loadCustomerStep())
                 .next(updateStartStep())
                 .build();
@@ -75,7 +75,8 @@ public class BatchApplication {
     @Bean
     public Step initializeBatch() {
         return this.stepBuilderFactory.get("initializeBatch")
-                .flow(preProcessingFlow())
+                .job(preProcessingJob())
+                .parametersExtractor(new DefaultJobParametersExtractor())
                 .build();
     }
 
