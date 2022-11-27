@@ -2,6 +2,7 @@ package com.example.batch;
 
 import com.example.batch.incrementer.DailyJobTimestamper;
 import com.example.batch.listener.JobLoggerListener;
+import com.example.batch.listener.LoggingStepStartStopListener;
 import com.example.batch.service.CustomService;
 import com.example.batch.step.policy.RandomChunkSizePolicy;
 import com.example.batch.step.tasklet.HelloWorld;
@@ -115,6 +116,7 @@ public class BatchApplication {
                 .<String, String>chunk(randomCompletionPolicy())
                 .reader(itemReader())
                 .writer(itemWriter())
+                .listener(new LoggingStepStartStopListener())
                 .build();
     }
 
