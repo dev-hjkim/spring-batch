@@ -6,6 +6,8 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.FlowBuilder;
+import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
@@ -25,65 +27,80 @@ public class BatchApplication {
     private StepBuilderFactory stepBuilderFactory;
 
     @Bean
-    public Tasklet passTasklet() {
+    public Tasklet loadStockFile() {
         return ((contribution, chunkContext) -> {
+            System.out.println("The stock file has been loaded");
             return RepeatStatus.FINISHED;
         });
     }
 
     @Bean
-    public Tasklet successTasklet() {
+    public Tasklet loadCustomerFile() {
         return ((contribution, chunkContext) -> {
-            System.out.println("Success!");
+            System.out.println("The customer file has been loaded");
             return RepeatStatus.FINISHED;
         });
     }
 
     @Bean
-    public Tasklet failTasklet() {
+    public Tasklet updateStart() {
         return ((contribution, chunkContext) -> {
-            System.out.println("Failure!");
+            System.out.println("The start has been updated");
             return RepeatStatus.FINISHED;
         });
     }
 
     @Bean
-    public Job job() {
-        return this.jobBuilderFactory.get("conditionalJob")
-                .start(firstStep())
-                .next(decider())
-                .from(decider())
-                .on("FAILED").stopAndRestart(successStep())
-                .from(decider())
-                .on("*").to(successStep())
+    public Tasklet runBatchTasklet() {
+        return ((contribution, chunkContext) -> {
+            System.out.println("The batch has been run");
+            return RepeatStatus.FINISHED;
+        });
+    }
+
+    @Bean
+    public Flow preProcessingFlow() {
+        return new FlowBuilder<Flow>("preProcessingFlow").start(loadFileStep())
+                .next(loadCustomerStep())
+                .next(updateStartStep())
+                .build();
+    }
+
+    @Bean
+    public Job conditionalStepLogicJob() {
+        return this.jobBuilderFactory.get("conditionalStepLogicJob")
+                .start(preProcessingFlow())
+                .next(runBatch())
                 .end()
                 .build();
     }
 
     @Bean
-    public Step firstStep() {
-        return this.stepBuilderFactory.get("firstStep")
-                .tasklet(passTasklet())
+    public Step loadFileStep() {
+        return this.stepBuilderFactory.get("loadFileStep")
+                .tasklet(loadStockFile())
                 .build();
     }
 
     @Bean
-    public Step successStep() {
-        return this.stepBuilderFactory.get("successStep")
-                .tasklet(successTasklet())
+    public Step loadCustomerStep() {
+        return this.stepBuilderFactory.get("loadCustomerStep")
+                .tasklet(loadCustomerFile())
                 .build();
     }
 
     @Bean
-    public Step failureStep() {
-        return this.stepBuilderFactory.get("failureStep")
-                .tasklet(failTasklet())
+    public Step updateStartStep() {
+        return this.stepBuilderFactory.get("updateStartStep")
+                .tasklet(updateStart())
                 .build();
     }
 
     @Bean
-    public JobExecutionDecider decider() {
-        return new RandomDecider();
+    public Step runBatch() {
+        return this.stepBuilderFactory.get("runBatch")
+                .tasklet(runBatchTasklet())
+                .build();
     }
 
     public static void main(String[] args) {
