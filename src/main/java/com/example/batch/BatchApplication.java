@@ -21,7 +21,11 @@ import org.springframework.batch.core.step.tasklet.MethodInvokingTaskletAdapter;
 import org.springframework.batch.core.step.tasklet.SystemCommandTasklet;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.support.ListItemReader;
+import org.springframework.batch.repeat.CompletionPolicy;
 import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.batch.repeat.policy.CompositeCompletionPolicy;
+import org.springframework.batch.repeat.policy.SimpleCompletionPolicy;
+import org.springframework.batch.repeat.policy.TimeoutTerminationPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -107,7 +111,7 @@ public class BatchApplication {
     @Bean
     public Step chunkStep() {
         return this.stepBuilderFactory.get("chunkStep")
-                .<String, String>chunk(1000)
+                .<String, String>chunk(completionPolicy())
                 .reader(itemReader())
                 .writer(itemWriter())
                 .build();
@@ -185,6 +189,20 @@ public class BatchApplication {
             }
             System.out.println("==========================");
         };
+    }
+
+    @Bean
+    public CompletionPolicy completionPolicy() {
+        CompositeCompletionPolicy policy = new CompositeCompletionPolicy();
+
+        policy.setPolicies(
+                new CompletionPolicy[] {
+                        new TimeoutTerminationPolicy(3),
+                        new SimpleCompletionPolicy(1000)
+                }
+        );
+
+        return policy;
     }
 
     @Bean
