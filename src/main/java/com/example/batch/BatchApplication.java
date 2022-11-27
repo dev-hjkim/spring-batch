@@ -3,6 +3,7 @@ package com.example.batch;
 import com.example.batch.incrementer.DailyJobTimestamper;
 import com.example.batch.listener.JobLoggerListener;
 import com.example.batch.service.CustomService;
+import com.example.batch.step.policy.RandomChunkSizePolicy;
 import com.example.batch.step.tasklet.HelloWorld;
 import com.example.batch.validator.ParameterValidator;
 import org.springframework.batch.core.Job;
@@ -111,7 +112,7 @@ public class BatchApplication {
     @Bean
     public Step chunkStep() {
         return this.stepBuilderFactory.get("chunkStep")
-                .<String, String>chunk(completionPolicy())
+                .<String, String>chunk(randomCompletionPolicy())
                 .reader(itemReader())
                 .writer(itemWriter())
                 .build();
@@ -208,6 +209,11 @@ public class BatchApplication {
     @Bean
     public CustomService service() {
         return new CustomService();
+    }
+
+    @Bean
+    public CompletionPolicy randomCompletionPolicy() {
+        return new RandomChunkSizePolicy();
     }
 
     public static void main(String[] args) {
