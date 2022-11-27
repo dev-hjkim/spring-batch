@@ -19,6 +19,8 @@ import org.springframework.batch.core.listener.JobListenerFactoryBean;
 import org.springframework.batch.core.step.tasklet.CallableTaskletAdapter;
 import org.springframework.batch.core.step.tasklet.MethodInvokingTaskletAdapter;
 import org.springframework.batch.core.step.tasklet.SystemCommandTasklet;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +28,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 
 @EnableBatchProcessing
@@ -61,7 +66,7 @@ public class BatchApplication {
     @Bean
     public Job job() {
         return this.jobBuilderFactory.get("basicJob")
-                .start(systemCommandStep())
+                .start(chunkStep())
                 .validator(validator())
                 .incrementer(new DailyJobTimestamper())
                 .listener(JobListenerFactoryBean.getListener(
@@ -96,6 +101,15 @@ public class BatchApplication {
     public Step systemCommandStep() {
         return this.stepBuilderFactory.get("systemCommandStep")
                 .tasklet(systemCommandTasklet())
+                .build();
+    }
+
+    @Bean
+    public Step chunkStep() {
+        return this.stepBuilderFactory.get("chunkStep")
+                .<String, String>chunk(1000)
+                .reader(itemReader())
+                .writer(itemWriter())
                 .build();
     }
 
@@ -151,6 +165,26 @@ public class BatchApplication {
         systemCommandTasklet.setInterruptOnCancel(true);
 
         return systemCommandTasklet;
+    }
+
+    @Bean
+    public ListItemReader<String> itemReader() {
+        List<String> items = new ArrayList<>(100000);
+
+        for (int i=0; i<100000; i++) {
+            items.add(UUID.randomUUID() + " ::: " + i + " 번째");
+        }
+        return new ListItemReader<>(items);
+    }
+
+    @Bean
+    public ItemWriter<String> itemWriter() {
+        return items -> {
+            for (String item : items) {
+                System.out.println(">> current item = " + item);
+            }
+            System.out.println("==========================");
+        };
     }
 
     @Bean
