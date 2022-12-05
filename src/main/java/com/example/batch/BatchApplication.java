@@ -13,6 +13,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Properties;
+
 @EnableBatchProcessing
 @SpringBootApplication
 public class BatchApplication {
@@ -46,6 +48,12 @@ public class BatchApplication {
     }
 
     public static void main(String[] args) {
-        SpringApplication.run(BatchApplication.class, args);
+        SpringApplication application = new SpringApplication(BatchApplication.class);
+
+        Properties properties = new Properties();
+        properties.put("spring.batch.job.enabled", false);
+        application.setDefaultProperties(properties);
+
+        application.run(args);
     }
 }
