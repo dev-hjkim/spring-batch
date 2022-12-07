@@ -7,13 +7,13 @@ import org.springframework.batch.core.configuration.annotation.EnableBatchProces
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.explore.JobExplorer;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-
-import java.util.Properties;
 
 @EnableBatchProcessing
 @SpringBootApplication
@@ -34,26 +34,23 @@ public class BatchApplication {
     }
 
     @Bean
-    public Step explorerStep() {
-        return this.stepBuilderFactory.get("explorerStep")
-                .tasklet(explorerTasklet())
+    public Job job() {
+        return this.jobBuilderFactory.get("job")
+                .incrementer(new RunIdIncrementer())
+                .start(step1())
                 .build();
     }
 
     @Bean
-    public Job explorerJob() {
-        return this.jobBuilderFactory.get("explorerJob")
-                .start(explorerStep())
-                .build();
+    public Step step1() {
+        return this.stepBuilderFactory.get("step1")
+                .tasklet((stepContribution, chunkContext) -> {
+                    System.out.println("step 1 ran today!");
+                    return RepeatStatus.FINISHED;
+                }).build();
     }
 
     public static void main(String[] args) {
-        SpringApplication application = new SpringApplication(BatchApplication.class);
-
-        Properties properties = new Properties();
-        properties.put("spring.batch.job.enabled", false);
-        application.setDefaultProperties(properties);
-
-        application.run(args);
+        SpringApplication.run(BatchApplication.class, args);
     }
 }
