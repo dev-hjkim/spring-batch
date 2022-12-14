@@ -49,10 +49,8 @@ public class BatchApplication {
     public Job transactionJob() {
         return this.jobBuilderFactory.get("transactionJob")
                 .start(importTransactionFileStep())
-                .on("STOPPED").stopAndRestart(importTransactionFileStep())
-                .from(importTransactionFileStep()).on("*").to(applyTransactionStep())
-                .from(applyTransactionStep()).next(generateAccountSummaryStep())
-                .end()
+                .next(applyTransactionStep())
+                .next(generateAccountSummaryStep())
                 .build();
     }
 

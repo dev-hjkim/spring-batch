@@ -1,9 +1,8 @@
 package com.example.batch.itemreader;
 
 import com.example.batch.domain.Transaction;
-import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
-import org.springframework.batch.core.annotation.AfterStep;
+import org.springframework.batch.core.annotation.BeforeStep;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemStreamException;
 import org.springframework.batch.item.ItemStreamReader;
@@ -14,6 +13,8 @@ public class TransactionReader implements ItemStreamReader<Transaction> {
     private ItemStreamReader<FieldSet> fieldSetReader;
     private int recordCount = 0;
     private int expectedRecordCount = 0;
+
+    private StepExecution stepExecution;
 
     public TransactionReader(ItemStreamReader<FieldSet> fieldSetReader) {
         this.fieldSetReader = fieldSetReader;
@@ -36,6 +37,10 @@ public class TransactionReader implements ItemStreamReader<Transaction> {
                 recordCount++;
             } else {
                 expectedRecordCount = fieldSet.readInt(0);
+
+                if (expectedRecordCount != this.recordCount) {
+                    this.stepExecution.setTerminateOnly();
+                }
             }
         }
         return result;
@@ -45,13 +50,9 @@ public class TransactionReader implements ItemStreamReader<Transaction> {
         this.fieldSetReader = fieldSetReader;
     }
 
-    @AfterStep
-    public ExitStatus afterStep(StepExecution execution) {
-        if (recordCount == expectedRecordCount) {
-            return execution.getExitStatus();
-        } else {
-            return ExitStatus.STOPPED;
-        }
+    @BeforeStep
+    public void beforeStep(StepExecution execution) {
+        this.stepExecution = execution;
     }
 
     @Override
