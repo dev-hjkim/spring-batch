@@ -48,6 +48,7 @@ public class BatchApplication {
     @Bean
     public Job transactionJob() {
         return this.jobBuilderFactory.get("transactionJob")
+                .preventRestart()
                 .start(importTransactionFileStep())
                 .next(applyTransactionStep())
                 .next(generateAccountSummaryStep())
