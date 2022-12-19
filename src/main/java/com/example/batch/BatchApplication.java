@@ -1,6 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer;
+import com.example.batch.linetokenizer.CustomerFileLineTokenizer;
 import com.example.batch.mapper.CustomerFieldSetMapper;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -55,10 +56,8 @@ public class BatchApplication {
             @Value("#{jobParameters['customerFile']}") Resource inputFile) {
         return new FlatFileItemReaderBuilder<Customer>()
                 .name("customerItemReader")
-                .delimited()
-                .names(new String[] {"firstName", "middleInitial", "lastName",
-                "addressNumber", "street", "city", "state", "zipCode"})
-                .fieldSetMapper(new CustomerFieldSetMapper())
+                .lineTokenizer(new CustomerFileLineTokenizer())
+                .targetType(Customer.class)
                 .resource(inputFile)
                 .build();
     }
