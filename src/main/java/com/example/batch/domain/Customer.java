@@ -4,8 +4,7 @@ public class Customer {
     private String firstName;
     private String middleInitial;
     private String lastName;
-    private String addressNumber;
-    private String street;
+    private String address;
     private String city;
     private String state;
     private String zipCode;
@@ -15,16 +14,14 @@ public class Customer {
     public Customer(String firstName,
                     String middleInitial,
                     String lastName,
-                    String addressNumber,
-                    String street,
+                    String address,
                     String city,
                     String state,
                     String zipCode) {
         this.firstName = firstName;
         this.middleInitial = middleInitial;
         this.lastName = lastName;
-        this.addressNumber = addressNumber;
-        this.street = street;
+        this.address = address;
         this.city = city;
         this.state = state;
         this.zipCode = zipCode;
@@ -36,8 +33,7 @@ public class Customer {
                 "firstName='" + firstName + "\'" +
                 ", middleInitial='" + middleInitial + "\'" +
                 ", lastName='" + lastName + "\'" +
-                ", addressNumber='" + addressNumber + "\'" +
-                ", street='" + street + "\'" +
+                ", address='" + address + "\'" +
                 ", city='" + city + "\'" +
                 ", state='" + state + "\'" +
                 ", zipCode='" + zipCode + "\'" +
@@ -68,20 +64,12 @@ public class Customer {
         this.lastName = lastName;
     }
 
-    public String getAddressNumber() {
-        return addressNumber;
+    public String getAddress() {
+        return address;
     }
 
-    public void setAddressNumber(String addressNumber) {
-        this.addressNumber = addressNumber;
-    }
-
-    public String getStreet() {
-        return street;
-    }
-
-    public void setStreet(String street) {
-        this.street = street;
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public String getCity() {
