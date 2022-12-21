@@ -1,5 +1,7 @@
 package com.example.batch.domain;
 
+import java.util.List;
+
 public class Customer {
     private String firstName;
     private String middleInitial;
@@ -8,6 +10,8 @@ public class Customer {
     private String city;
     private String state;
     private String zipCode;
+
+    private List<Transaction> transactions;
 
     public Customer() {}
 
@@ -29,15 +33,23 @@ public class Customer {
 
     @Override
     public String toString() {
-        return "Customer{" +
-                "firstName='" + firstName + "\'" +
-                ", middleInitial='" + middleInitial + "\'" +
-                ", lastName='" + lastName + "\'" +
-                ", address='" + address + "\'" +
-                ", city='" + city + "\'" +
-                ", state='" + state + "\'" +
-                ", zipCode='" + zipCode + "\'" +
-                '}';
+        StringBuilder output = new StringBuilder();
+
+        output.append(firstName);
+        output.append(" ");
+        output.append(middleInitial);
+        output.append(". ");
+        output.append(lastName);
+
+        if (transactions != null && transactions.size() > 0) {
+            output.append(" has ");
+            output.append(transactions.size());
+            output.append(" transactions.");
+        } else {
+            output.append(" has no transactions.");
+        }
+
+        return output.toString();
     }
 
     public String getFirstName() {
@@ -94,5 +106,13 @@ public class Customer {
 
     public void setZipCode(String zipCode) {
         this.zipCode = zipCode;
+    }
+
+    public List<Transaction> getTransactions() {
+        return transactions;
+    }
+
+    public void setTransactions(List<Transaction> transactions) {
+        this.transactions = transactions;
     }
 }

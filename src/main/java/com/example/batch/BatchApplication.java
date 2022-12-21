@@ -1,6 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer;
+import com.example.batch.itemreader.CustomerFileReader;
 import com.example.batch.mapper.TransactionFieldSetMapper;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -48,7 +49,7 @@ public class BatchApplication {
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer, Customer>chunk(10)
-                .reader(customerItemReader(null))
+                .reader(customerFileReader())
                 .writer(itemWriter())
                 .build();
     }
@@ -58,13 +59,18 @@ public class BatchApplication {
 
     @Bean
     @StepScope
-    public FlatFileItemReader<Customer> customerItemReader(
+    public FlatFileItemReader customerItemReader(
             @Value("#{jobParameters['customerFile']}") Resource inputFile) {
         return new FlatFileItemReaderBuilder<Customer>()
                 .name("customerItemReader")
                 .lineMapper(lineTokenizer())
                 .resource(inputFile)
                 .build();
+    }
+
+    @Bean
+    public CustomerFileReader customerFileReader() {
+        return new CustomerFileReader(customerItemReader(null));
     }
 
     @Bean
