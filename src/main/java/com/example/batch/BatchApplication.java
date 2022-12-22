@@ -11,7 +11,9 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.MultiResourceItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.file.builder.MultiResourceItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.FieldSetMapper;
 import org.springframework.batch.item.file.mapping.PatternMatchingCompositeLineMapper;
@@ -59,18 +61,26 @@ public class BatchApplication {
 
     @Bean
     @StepScope
-    public FlatFileItemReader customerItemReader(
-            @Value("#{jobParameters['customerFile']}") Resource inputFile) {
-        return new FlatFileItemReaderBuilder<Customer>()
-                .name("customerItemReader")
-                .lineMapper(lineTokenizer())
-                .resource(inputFile)
+    public MultiResourceItemReader multiCustomerReader(
+            @Value("#{jobParameters['customerFile']}") Resource[] inputFiles) {
+        return new MultiResourceItemReaderBuilder<>()
+                .name("multiCustomerReader")
+                .resources(inputFiles)
+                .delegate(customerFileReader())
                 .build();
     }
 
     @Bean
     public CustomerFileReader customerFileReader() {
-        return new CustomerFileReader(customerItemReader(null));
+        return new CustomerFileReader(customerItemReader());
+    }
+
+    @StepScope
+    public FlatFileItemReader customerItemReader() {
+        return new FlatFileItemReaderBuilder<Customer>()
+                .name("customerItemReader")
+                .lineMapper(lineTokenizer())
+                .build();
     }
 
     @Bean
