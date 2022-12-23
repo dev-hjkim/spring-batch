@@ -1,7 +1,11 @@
 package com.example.batch.domain;
 
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.util.List;
 
+@XmlRootElement
 public class Customer {
     private String firstName;
     private String middleInitial;
@@ -112,6 +116,8 @@ public class Customer {
         return transactions;
     }
 
+    @XmlElementWrapper(name = "transactions")
+    @XmlElement(name = "transaction")
     public void setTransactions(List<Transaction> transactions) {
         this.transactions = transactions;
     }
