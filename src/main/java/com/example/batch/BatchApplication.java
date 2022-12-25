@@ -1,8 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer;
-import com.example.batch.domain.Transaction;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.batch.mapper.CustomerRowMapper;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -10,18 +9,16 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.json.JacksonJsonObjectReader;
-import org.springframework.batch.item.json.JsonItemReader;
-import org.springframework.batch.item.json.builder.JsonItemReaderBuilder;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.io.Resource;
-import org.springframework.oxm.jaxb.Jaxb2Marshaller;
+import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 
-import java.text.SimpleDateFormat;
+import javax.sql.DataSource;
 
 
 @EnableBatchProcessing
@@ -45,7 +42,7 @@ public class BatchApplication {
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer, Customer>chunk(10)
-                .reader(customerFileReader(null))
+                .reader(cursorItemReader(null))
                 .writer(itemWriter())
                 .build();
     }
@@ -54,30 +51,21 @@ public class BatchApplication {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    @StepScope
-    public JsonItemReader<Customer> customerFileReader(
-            @Value("#{jobParameters['customerFile']}") Resource inputFile) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd hh:mm:ss"));
-
-        JacksonJsonObjectReader<Customer> jsonObjectReader =
-                new JacksonJsonObjectReader<>(Customer.class);
-        jsonObjectReader.setMapper(objectMapper);
-
-        return new JsonItemReaderBuilder<Customer>()
-                .name("customerFileReader")
-                .jsonObjectReader(jsonObjectReader)
-                .resource(inputFile)
+    public JdbcCursorItemReader<Customer> cursorItemReader(DataSource dataSource) {
+        return new JdbcCursorItemReaderBuilder<Customer>()
+                .name("cursorItemReader")
+                .dataSource(dataSource)
+                .sql("select * from customer where city = ?")
+                .rowMapper(new CustomerRowMapper())
+                .preparedStatementSetter(citySetter(null))
                 .build();
     }
 
     @Bean
-    public Jaxb2Marshaller customerMarshaller() {
-        Jaxb2Marshaller jaxb2Marshaller = new Jaxb2Marshaller();
-
-        jaxb2Marshaller.setClassesToBeBound(Customer.class, Transaction.class);
-
-        return jaxb2Marshaller;
+    @StepScope
+    public ArgumentPreparedStatementSetter citySetter(
+            @Value("#{jobParameters['city']}") String city) {
+        return new ArgumentPreparedStatementSetter(new Object[]{city});
     }
 
     @Bean
