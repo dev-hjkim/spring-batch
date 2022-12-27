@@ -9,16 +9,19 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
+import org.springframework.batch.item.database.PagingQueryProvider;
+import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
+import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
 
 import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
 
 
 @EnableBatchProcessing
@@ -42,7 +45,7 @@ public class BatchApplication {
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer, Customer>chunk(10)
-                .reader(cursorItemReader(null))
+                .reader(cursorItemReader(null, pagingQueryProvider(null), "Seoul"))
                 .writer(itemWriter())
                 .build();
     }
@@ -51,21 +54,34 @@ public class BatchApplication {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public JdbcCursorItemReader<Customer> cursorItemReader(DataSource dataSource) {
-        return new JdbcCursorItemReaderBuilder<Customer>()
+    @StepScope
+    public JdbcPagingItemReader<Customer> cursorItemReader(DataSource dataSource,
+                                                           PagingQueryProvider queryProvider,
+                                                           @Value("#{jobParameters['city']}") String city) {
+
+        Map<String, Object> parameterValues = new HashMap<>(1);
+        parameterValues.put("city", city);
+
+        return new JdbcPagingItemReaderBuilder<Customer>()
                 .name("cursorItemReader")
                 .dataSource(dataSource)
-                .sql("select * from customer where city = ?")
+                .queryProvider(queryProvider)
+                .parameterValues(parameterValues)
+                .pageSize(10)
                 .rowMapper(new CustomerRowMapper())
-                .preparedStatementSetter(citySetter(null))
                 .build();
     }
 
     @Bean
-    @StepScope
-    public ArgumentPreparedStatementSetter citySetter(
-            @Value("#{jobParameters['city']}") String city) {
-        return new ArgumentPreparedStatementSetter(new Object[]{city});
+    public SqlPagingQueryProviderFactoryBean pagingQueryProvider(DataSource dataSource) {
+        SqlPagingQueryProviderFactoryBean factoryBean = new SqlPagingQueryProviderFactoryBean();
+
+        factoryBean.setSelectClause("select *");
+        factoryBean.setFromClause("from Customer");
+        factoryBean.setWhereClause("where city = :city");
+        factoryBean.setSortKey("lastName");
+        factoryBean.setDataSource(dataSource);
+        return factoryBean;
     }
 
     @Bean
