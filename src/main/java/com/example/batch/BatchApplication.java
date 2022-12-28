@@ -1,7 +1,9 @@
 package com.example.batch;
 
+import com.example.batch.config.HibernateBatchConfigurer;
 import com.example.batch.domain.Customer;
 import com.example.batch.mapper.CustomerRowMapper;
+import org.hibernate.SessionFactory;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -9,8 +11,10 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.HibernateCursorItemReader;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.PagingQueryProvider;
+import org.springframework.batch.item.database.builder.HibernateCursorItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +23,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,6 +40,9 @@ public class BatchApplication {
     @Autowired
     private StepBuilderFactory stepBuilderFactory;
 
+    @Autowired
+    private HibernateBatchConfigurer batchConfigurer;
+
     @Bean
     public Job job() {
         return this.jobBuilderFactory.get("job")
@@ -45,7 +54,7 @@ public class BatchApplication {
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer, Customer>chunk(10)
-                .reader(cursorItemReader(null, pagingQueryProvider(null), "Seoul"))
+                .reader(cursorItemReader(null, "Seoul"))
                 .writer(itemWriter())
                 .build();
     }
@@ -55,33 +64,15 @@ public class BatchApplication {
 
     @Bean
     @StepScope
-    public JdbcPagingItemReader<Customer> cursorItemReader(DataSource dataSource,
-                                                           PagingQueryProvider queryProvider,
-                                                           @Value("#{jobParameters['city']}") String city) {
+    public HibernateCursorItemReader<Customer> cursorItemReader(EntityManagerFactory entityManagerFactory,
+                                                                @Value("#{jobParameters['city']}") String city) {
 
-        Map<String, Object> parameterValues = new HashMap<>(1);
-        parameterValues.put("city", city);
-
-        return new JdbcPagingItemReaderBuilder<Customer>()
+        return new HibernateCursorItemReaderBuilder<Customer>()
                 .name("cursorItemReader")
-                .dataSource(dataSource)
-                .queryProvider(queryProvider)
-                .parameterValues(parameterValues)
-                .pageSize(10)
-                .rowMapper(new CustomerRowMapper())
+                .sessionFactory(entityManagerFactory.unwrap(SessionFactory.class))
+                .queryString("from Customer where city = :city")
+                .parameterValues(Collections.singletonMap("city", city))
                 .build();
-    }
-
-    @Bean
-    public SqlPagingQueryProviderFactoryBean pagingQueryProvider(DataSource dataSource) {
-        SqlPagingQueryProviderFactoryBean factoryBean = new SqlPagingQueryProviderFactoryBean();
-
-        factoryBean.setSelectClause("select *");
-        factoryBean.setFromClause("from Customer");
-        factoryBean.setWhereClause("where city = :city");
-        factoryBean.setSortKey("lastName");
-        factoryBean.setDataSource(dataSource);
-        return factoryBean;
     }
 
     @Bean

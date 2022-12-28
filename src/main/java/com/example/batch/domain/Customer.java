@@ -1,15 +1,21 @@
 package com.example.batch.domain;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlElementWrapper;
-import javax.xml.bind.annotation.XmlRootElement;
-import java.util.List;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
 
+@Entity
+@Table(name = "customer")
 public class Customer {
+    @Id
     private Long id;
 
+    @Column(name = "firstName")
     private String firstName;
+    @Column(name = "middleInitial")
     private String middleInitial;
+    @Column(name = "lastName")
     private String lastName;
     private String address;
     private String city;
@@ -17,22 +23,6 @@ public class Customer {
     private String zipCode;
 
     public Customer() {}
-
-    public Customer(String firstName,
-                    String middleInitial,
-                    String lastName,
-                    String address,
-                    String city,
-                    String state,
-                    String zipCode) {
-        this.firstName = firstName;
-        this.middleInitial = middleInitial;
-        this.lastName = lastName;
-        this.address = address;
-        this.city = city;
-        this.state = state;
-        this.zipCode = zipCode;
-    }
 
     @Override
     public String toString() {
