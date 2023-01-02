@@ -2,7 +2,7 @@ package com.example.batch;
 
 import com.example.batch.config.HibernateBatchConfigurer;
 import com.example.batch.domain.Customer;
-import com.example.batch.provider.CustomerByCityQueryProvider;
+import com.example.batch.mapper.CustomerRowMapper;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -10,16 +10,18 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.database.JpaPagingItemReader;
-import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
+import org.springframework.batch.item.database.StoredProcedureItemReader;
+import org.springframework.batch.item.database.builder.StoredProcedureItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.ArgumentPreparedStatementSetter;
+import org.springframework.jdbc.core.SqlParameter;
 
-import javax.persistence.EntityManagerFactory;
-import java.util.Collections;
+import javax.sql.DataSource;
+import java.sql.Types;
 
 
 @EnableBatchProcessing
@@ -56,19 +58,20 @@ public class BatchApplication {
 
     @Bean
     @StepScope
-    public JpaPagingItemReader<Customer> customerItemReader(EntityManagerFactory entityManagerFactory,
-                                                          @Value("#{jobParameters['city']}") String city) {
+    public StoredProcedureItemReader<Customer> customerItemReader(DataSource dataSource,
+                                                                  @Value("#{jobParameters['city']}") String city) {
 
-        CustomerByCityQueryProvider queryProvider =
-                new CustomerByCityQueryProvider();
-
-        queryProvider.setCityName(city);
-
-        return new JpaPagingItemReaderBuilder<Customer>()
+        return new StoredProcedureItemReaderBuilder<Customer>()
                 .name("customerItemReader")
-                .entityManagerFactory(entityManagerFactory)
-                .queryProvider(queryProvider)
-                .parameterValues(Collections.singletonMap("city", city))
+                .dataSource(dataSource)
+                .procedureName("customer_list")
+                .parameters(new SqlParameter[] {
+                        new SqlParameter("cityOption", Types.VARCHAR)
+                })
+                .preparedStatementSetter(
+                        new ArgumentPreparedStatementSetter(new Object[] {city})
+                )
+                .rowMapper(new CustomerRowMapper())
                 .build();
     }
 
