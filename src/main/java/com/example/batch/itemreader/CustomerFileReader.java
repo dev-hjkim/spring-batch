@@ -26,10 +26,10 @@ public class CustomerFileReader implements ResourceAwareItemReaderItemStream<Cus
         curItem = null;
 
         if (item != null) {
-            item.setTransactions(new ArrayList<>());
+//            item.setTransactions(new ArrayList<>());
 
             while (peek() instanceof Transaction) {
-                item.getTransactions().add((Transaction) curItem);
+//                item.getTransactions().add((Transaction) curItem);
                 curItem = null;
             }
         }

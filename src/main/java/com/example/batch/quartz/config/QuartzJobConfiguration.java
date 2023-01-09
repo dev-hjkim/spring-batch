@@ -21,8 +21,8 @@ public class QuartzJobConfiguration {
     private StepBuilderFactory stepBuilderFactory;
 
     @Bean
-    public Job job() {
-        return this.jobBuilderFactory.get("job")
+    public Job quartzJob() {
+        return this.jobBuilderFactory.get("quartzJob")
                 .incrementer(new RunIdIncrementer())
                 .start(step1())
                 .build();

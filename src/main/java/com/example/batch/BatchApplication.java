@@ -1,24 +1,19 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer;
-import com.example.batch.repository.CustomerRepository;
+import com.example.batch.service.CustomerService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.data.RepositoryItemReader;
-import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.batch.item.adapter.ItemReaderAdapter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.domain.Sort;
-
-import java.util.Collections;
 
 
 @EnableBatchProcessing
@@ -32,13 +27,14 @@ public class BatchApplication {
     private StepBuilderFactory stepBuilderFactory;
 
     @Autowired
-    private CustomerRepository customerRepository;
+    private CustomerService customerService;
 
 
     @Bean
     public Job job() {
         return this.jobBuilderFactory.get("job")
                 .start(copyFileStep())
+                .incrementer(new RunIdIncrementer())
                 .build();
     }
 
@@ -46,7 +42,7 @@ public class BatchApplication {
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer, Customer>chunk(10)
-                .reader(customerItemReader(customerRepository, null))
+                .reader(customerItemReader(customerService))
                 .writer(itemWriter())
                 .build();
     }
@@ -55,17 +51,13 @@ public class BatchApplication {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    @StepScope
-    public RepositoryItemReader<Customer> customerItemReader(CustomerRepository repository,
-                                                             @Value("#{jobParameters['city']}") String city) {
+    public ItemReaderAdapter<Customer> customerItemReader(CustomerService customerService) {
+        ItemReaderAdapter<Customer> adapter = new ItemReaderAdapter<>();
 
-        return new RepositoryItemReaderBuilder<Customer>()
-                .name("customerItemReader")
-                .arguments(Collections.singletonList(city))
-                .methodName("findByCity")
-                .repository(repository)
-                .sorts(Collections.singletonMap("lastName", Sort.Direction.ASC))
-                .build();
+        adapter.setTargetObject(customerService);
+        adapter.setTargetMethod("getCustomer");
+
+        return adapter;
     }
 
     @Bean
