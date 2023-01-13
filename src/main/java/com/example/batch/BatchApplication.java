@@ -1,6 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer;
+import com.example.batch.itemreader.CustomerItemReader;
 import com.example.batch.service.CustomerService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -9,7 +10,6 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.adapter.ItemReaderAdapter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -42,7 +42,7 @@ public class BatchApplication {
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer, Customer>chunk(10)
-                .reader(customerItemReader(customerService))
+                .reader(customerItemReader())
                 .writer(itemWriter())
                 .build();
     }
@@ -51,13 +51,12 @@ public class BatchApplication {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public ItemReaderAdapter<Customer> customerItemReader(CustomerService customerService) {
-        ItemReaderAdapter<Customer> adapter = new ItemReaderAdapter<>();
+    public CustomerItemReader customerItemReader() {
+        CustomerItemReader customerItemReader = new CustomerItemReader();
 
-        adapter.setTargetObject(customerService);
-        adapter.setTargetMethod("getCustomer");
+        customerItemReader.setName("customerItemReader");
 
-        return adapter;
+        return customerItemReader;
     }
 
     @Bean
