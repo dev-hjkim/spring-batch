@@ -3,6 +3,7 @@ package com.example.batch;
 import com.example.batch.domain.Customer;
 import com.example.batch.itemreader.CustomerItemReader;
 import com.example.batch.listener.CustomerItemListener;
+import com.example.batch.listener.EmptyInputStepFailer;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -41,10 +42,7 @@ public class BatchApplication {
                 .<Customer, Customer>chunk(10)
                 .reader(customerItemReader())
                 .writer(itemWriter())
-                .faultTolerant()
-                .skipLimit(100)
-                .skip(Exception.class)
-                .listener(customerListener())
+                .listener(emptyFileFailer())
                 .build();
     }
 
@@ -68,6 +66,11 @@ public class BatchApplication {
     @Bean
     public CustomerItemListener customerListener() {
         return new CustomerItemListener();
+    }
+
+    @Bean
+    public EmptyInputStepFailer emptyFileFailer() {
+        return new EmptyInputStepFailer();
     }
 
     public static void main(String[] args) {
