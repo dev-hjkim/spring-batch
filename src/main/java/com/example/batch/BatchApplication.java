@@ -42,7 +42,8 @@ public class BatchApplication {
                 .reader(customerItemReader())
                 .writer(itemWriter())
                 .faultTolerant()
-                .skip(ParseException.class)
+                .skip(Exception.class)
+                .noSkip(ParseException.class)
                 .skipLimit(10)
                 .build();
     }
