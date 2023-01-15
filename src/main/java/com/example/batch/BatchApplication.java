@@ -2,6 +2,7 @@ package com.example.batch;
 
 import com.example.batch.domain.Customer;
 import com.example.batch.itemreader.CustomerItemReader;
+import com.example.batch.skipper.FileVerificationSkipper;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -42,9 +43,7 @@ public class BatchApplication {
                 .reader(customerItemReader())
                 .writer(itemWriter())
                 .faultTolerant()
-                .skip(Exception.class)
-                .noSkip(ParseException.class)
-                .skipLimit(10)
+                .skipPolicy(new FileVerificationSkipper())
                 .build();
     }
 
