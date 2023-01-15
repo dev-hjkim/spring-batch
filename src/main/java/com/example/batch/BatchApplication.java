@@ -2,7 +2,6 @@ package com.example.batch;
 
 import com.example.batch.domain.Customer;
 import com.example.batch.itemreader.CustomerItemReader;
-import com.example.batch.service.CustomerService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -10,6 +9,7 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -26,9 +26,6 @@ public class BatchApplication {
     @Autowired
     private StepBuilderFactory stepBuilderFactory;
 
-    @Autowired
-    private CustomerService customerService;
-
 
     @Bean
     public Job job() {
@@ -44,6 +41,9 @@ public class BatchApplication {
                 .<Customer, Customer>chunk(10)
                 .reader(customerItemReader())
                 .writer(itemWriter())
+                .faultTolerant()
+                .skip(ParseException.class)
+                .skipLimit(10)
                 .build();
     }
 
