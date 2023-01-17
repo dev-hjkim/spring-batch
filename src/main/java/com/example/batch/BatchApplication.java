@@ -1,20 +1,23 @@
 package com.example.batch;
 
-import com.example.batch.domain.Customer;
-import com.example.batch.itemreader.CustomerItemReader;
-import com.example.batch.listener.CustomerItemListener;
-import com.example.batch.listener.EmptyInputStepFailer;
+import com.example.batch.domain.Customer2;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.validator.BeanValidatingItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 
 
 @EnableBatchProcessing
@@ -39,10 +42,10 @@ public class BatchApplication {
     @Bean
     public Step copyFileStep() {
         return this.stepBuilderFactory.get("copyFileStep")
-                .<Customer, Customer>chunk(10)
+                .<Customer2, Customer2>chunk(5)
                 .reader(customerItemReader())
+                .processor(customerValidatingItemProcessor())
                 .writer(itemWriter())
-                .listener(emptyFileFailer())
                 .build();
     }
 
@@ -50,27 +53,33 @@ public class BatchApplication {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public CustomerItemReader customerItemReader() {
-        CustomerItemReader customerItemReader = new CustomerItemReader();
+    @StepScope
+    public FlatFileItemReader<Customer2> customerItemReader() {
+        Resource inputFile = new ClassPathResource("input/customer.csv");
 
-        customerItemReader.setName("customerItemReader");
-
-        return customerItemReader;
+        return new FlatFileItemReaderBuilder<Customer2>()
+                .name("customerItemReader")
+                .delimited()
+                .names(new String[] {"firstName",
+                "middleInitial",
+                "lastName",
+                "address",
+                "city",
+                "state",
+                "zip"})
+                .targetType(Customer2.class)
+                .resource(inputFile)
+                .build();
     }
 
     @Bean
-    public ItemWriter<Customer> itemWriter() {
+    public ItemWriter<Customer2> itemWriter() {
         return (items) -> items.forEach(System.out::println);
     }
 
     @Bean
-    public CustomerItemListener customerListener() {
-        return new CustomerItemListener();
-    }
-
-    @Bean
-    public EmptyInputStepFailer emptyFileFailer() {
-        return new EmptyInputStepFailer();
+    public BeanValidatingItemProcessor<Customer2> customerValidatingItemProcessor() {
+        return new BeanValidatingItemProcessor<>();
     }
 
     public static void main(String[] args) {
