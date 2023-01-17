@@ -1,6 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer2;
+import com.example.batch.validator.UniqueLastNameValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -11,7 +12,7 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.validator.BeanValidatingItemProcessor;
+import org.springframework.batch.item.validator.ValidatingItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -46,6 +47,7 @@ public class BatchApplication {
                 .reader(customerItemReader())
                 .processor(customerValidatingItemProcessor())
                 .writer(itemWriter())
+                .stream(validator())
                 .build();
     }
 
@@ -78,8 +80,17 @@ public class BatchApplication {
     }
 
     @Bean
-    public BeanValidatingItemProcessor<Customer2> customerValidatingItemProcessor() {
-        return new BeanValidatingItemProcessor<>();
+    public UniqueLastNameValidator validator() {
+        UniqueLastNameValidator uniqueLastNameValidator = new UniqueLastNameValidator();
+
+        uniqueLastNameValidator.setName("validator");
+
+        return uniqueLastNameValidator;
+    }
+
+    @Bean
+    public ValidatingItemProcessor<Customer2> customerValidatingItemProcessor() {
+        return new ValidatingItemProcessor<>(validator());
     }
 
     public static void main(String[] args) {
