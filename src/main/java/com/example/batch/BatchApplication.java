@@ -1,7 +1,7 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer2;
-import com.example.batch.validator.UniqueLastNameValidator;
+import com.example.batch.service.UpperCaseNameService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -10,9 +10,9 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.adapter.ItemProcessorAdapter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.validator.ValidatingItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -31,6 +31,9 @@ public class BatchApplication {
     @Autowired
     private StepBuilderFactory stepBuilderFactory;
 
+    @Autowired
+    private UpperCaseNameService upperCaseNameService;
+
 
     @Bean
     public Job job() {
@@ -45,9 +48,8 @@ public class BatchApplication {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer2, Customer2>chunk(5)
                 .reader(customerItemReader())
-                .processor(customerValidatingItemProcessor())
+                .processor(itemProcessor(upperCaseNameService))
                 .writer(itemWriter())
-                .stream(validator())
                 .build();
     }
 
@@ -80,17 +82,13 @@ public class BatchApplication {
     }
 
     @Bean
-    public UniqueLastNameValidator validator() {
-        UniqueLastNameValidator uniqueLastNameValidator = new UniqueLastNameValidator();
+    public ItemProcessorAdapter<Customer2, Customer2> itemProcessor(UpperCaseNameService service) {
+        ItemProcessorAdapter<Customer2, Customer2> adapter = new ItemProcessorAdapter<>();
 
-        uniqueLastNameValidator.setName("validator");
+        adapter.setTargetObject(service);
+        adapter.setTargetMethod("upperCase");
 
-        return uniqueLastNameValidator;
-    }
-
-    @Bean
-    public ValidatingItemProcessor<Customer2> customerValidatingItemProcessor() {
-        return new ValidatingItemProcessor<>(validator());
+        return adapter;
     }
 
     public static void main(String[] args) {

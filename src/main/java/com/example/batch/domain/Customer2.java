@@ -35,6 +35,31 @@ public class Customer2 {
     @Pattern(regexp="\\d{5}")
     private String zip;
 
+    public Customer2() {}
+
+    public Customer2(Customer2 customer) {
+        this.firstName = customer.getFirstName();
+        this.middleInitial = customer.getMiddleInitial();
+        this.lastName = customer.getLastName();
+        this.address = customer.getAddress();
+        this.city = customer.getCity();
+        this.state = customer.getState();
+        this.zip = customer.getZip();
+    }
+
+    @Override
+    public String toString() {
+        return "Customer{" +
+                ", firstName='" + firstName + '\'' +
+                ", middleInitial='" + middleInitial + '\'' +
+                ", lastName='" + lastName + '\'' +
+                ", address='" + address + '\'' +
+                ", city='" + city + '\'' +
+                ", state='" + state + '\'' +
+                ", zip='" + zip + '\'' +
+                '}';
+    }
+
     public String getFirstName() {
         return firstName;
     }
