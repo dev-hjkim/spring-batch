@@ -1,7 +1,6 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer2;
-import com.example.batch.service.UpperCaseNameService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -10,9 +9,9 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.adapter.ItemProcessorAdapter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.support.ScriptItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -31,9 +30,6 @@ public class BatchApplication {
     @Autowired
     private StepBuilderFactory stepBuilderFactory;
 
-    @Autowired
-    private UpperCaseNameService upperCaseNameService;
-
 
     @Bean
     public Job job() {
@@ -48,7 +44,7 @@ public class BatchApplication {
         return this.stepBuilderFactory.get("copyFileStep")
                 .<Customer2, Customer2>chunk(5)
                 .reader(customerItemReader())
-                .processor(itemProcessor(upperCaseNameService))
+                .processor(itemProcessor())
                 .writer(itemWriter())
                 .build();
     }
@@ -82,13 +78,14 @@ public class BatchApplication {
     }
 
     @Bean
-    public ItemProcessorAdapter<Customer2, Customer2> itemProcessor(UpperCaseNameService service) {
-        ItemProcessorAdapter<Customer2, Customer2> adapter = new ItemProcessorAdapter<>();
+    public ScriptItemProcessor<Customer2, Customer2> itemProcessor() {
+        Resource script = new ClassPathResource("upperCase.js");
 
-        adapter.setTargetObject(service);
-        adapter.setTargetMethod("upperCase");
+        ScriptItemProcessor<Customer2, Customer2> itemProcessor = new ScriptItemProcessor<>();
 
-        return adapter;
+        itemProcessor.setScript(script);
+
+        return itemProcessor;
     }
 
     public static void main(String[] args) {
