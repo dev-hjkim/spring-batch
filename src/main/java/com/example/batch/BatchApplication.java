@@ -1,6 +1,8 @@
 package com.example.batch;
 
 import com.example.batch.domain.Customer2;
+import com.example.batch.service.UpperCaseNameService;
+import com.example.batch.validator.UniqueLastNameValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -9,15 +11,20 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.adapter.ItemProcessorAdapter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.support.CompositeItemProcessor;
 import org.springframework.batch.item.support.ScriptItemProcessor;
+import org.springframework.batch.item.validator.ValidatingItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+
+import java.util.Arrays;
 
 
 @EnableBatchProcessing
@@ -29,6 +36,9 @@ public class BatchApplication {
 
     @Autowired
     private StepBuilderFactory stepBuilderFactory;
+
+    @Autowired
+    private UpperCaseNameService upperCaseNameService;
 
 
     @Bean
@@ -78,12 +88,53 @@ public class BatchApplication {
     }
 
     @Bean
-    public ScriptItemProcessor<Customer2, Customer2> itemProcessor() {
-        Resource script = new ClassPathResource("upperCase.js");
+    public UniqueLastNameValidator validator() {
+        UniqueLastNameValidator uniqueLastNameValidator = new UniqueLastNameValidator();
+
+        uniqueLastNameValidator.setName("validator");
+
+        return uniqueLastNameValidator;
+    }
+
+    @Bean
+    public ValidatingItemProcessor<Customer2> customerValidatingItemProcessor() {
+        ValidatingItemProcessor<Customer2> itemProcessor = new ValidatingItemProcessor<>(validator());
+
+        itemProcessor.setFilter(true);
+
+        return itemProcessor;
+    }
+
+    @Bean
+    public ItemProcessorAdapter<Customer2, Customer2> upperCaseItemProcessor(
+            UpperCaseNameService service) {
+        ItemProcessorAdapter<Customer2, Customer2> adapter = new ItemProcessorAdapter<>();
+
+        adapter.setTargetObject(service);
+        adapter.setTargetMethod("upperCase");
+
+        return adapter;
+    }
+
+    @Bean
+    public ScriptItemProcessor<Customer2, Customer2> lowerCaseItemProcessor() {
+        Resource script = new ClassPathResource("lowerCase.js");
 
         ScriptItemProcessor<Customer2, Customer2> itemProcessor = new ScriptItemProcessor<>();
 
         itemProcessor.setScript(script);
+
+        return itemProcessor;
+    }
+
+    @Bean
+    public CompositeItemProcessor<Customer2, Customer2> itemProcessor() {
+        CompositeItemProcessor<Customer2, Customer2> itemProcessor = new CompositeItemProcessor<>();
+
+        itemProcessor.setDelegates(Arrays.asList(
+                customerValidatingItemProcessor(),
+                upperCaseItemProcessor(upperCaseNameService),
+                lowerCaseItemProcessor()));
 
         return itemProcessor;
     }
