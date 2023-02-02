@@ -55,19 +55,19 @@ public class FormattedTextFileJob {
     @Bean
     @StepScope
     public FlatFileItemWriter<Customer2> customerItemWriter() {
-        Resource outputFile = new FileSystemResource("output/formattedCustomers.txt");
+        Resource outputFile = new FileSystemResource("output/delimitedCustomers.txt");
 
         return new FlatFileItemWriterBuilder<Customer2>()
                 .name("customerItemWriter")
                 .resource(outputFile)
-                .formatted()
-                .format("%s %s lives at %s %s in %s, %s.")
-                .names(new String[]{"firstName",
-                        "lastName",
-                        "address",
-                        "city",
+                .delimited()
+                .delimiter(";")
+                .names(new String[]{"zip",
                         "state",
-                        "zip"})
+                        "city",
+                        "address",
+                        "lastName",
+                        "firstName"})
                 .build();
     }
 
