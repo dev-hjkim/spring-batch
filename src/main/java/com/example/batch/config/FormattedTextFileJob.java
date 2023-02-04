@@ -55,7 +55,7 @@ public class FormattedTextFileJob {
     @Bean
     @StepScope
     public FlatFileItemWriter<Customer2> customerItemWriter() {
-        Resource outputFile = new FileSystemResource("output/delimitedCustomers.txt"); // 이미 파일이 존재하므로 ItemStreamException 발생
+        Resource outputFile = new FileSystemResource("output/delimitedCustomers.txt");
 
         return new FlatFileItemWriterBuilder<Customer2>()
                 .name("customerItemWriter")
@@ -68,7 +68,7 @@ public class FormattedTextFileJob {
                         "address",
                         "lastName",
                         "firstName"})
-                .shouldDeleteIfExists(false)
+                .append(true)
                 .build();
     }
 
