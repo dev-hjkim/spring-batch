@@ -35,7 +35,7 @@ public class FormattedTextFileJob {
     @Bean
     @StepScope
     public FlatFileItemReader<Customer2> customerFileReader() {
-        Resource inputFile = new ClassPathResource("input/customer.csv");
+        Resource inputFile = new ClassPathResource("input/customer2.csv");  // empty file
 
         return new FlatFileItemReaderBuilder<Customer2>()
                 .name("customerFileReader")
@@ -55,7 +55,7 @@ public class FormattedTextFileJob {
     @Bean
     @StepScope
     public FlatFileItemWriter<Customer2> customerItemWriter() {
-        Resource outputFile = new FileSystemResource("output/delimitedCustomers.txt");
+        Resource outputFile = new FileSystemResource("output/delimitedCustomers2.txt"); // 생성되었다가 삭제됨
 
         return new FlatFileItemWriterBuilder<Customer2>()
                 .name("customerItemWriter")
@@ -68,6 +68,7 @@ public class FormattedTextFileJob {
                         "address",
                         "lastName",
                         "firstName"})
+                .shouldDeleteIfEmpty(true)
                 .build();
     }
 
