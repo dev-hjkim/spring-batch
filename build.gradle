@@ -23,6 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-quartz'
 
     implementation 'org.springframework:spring-oxm'
+    implementation 'com.thoughtworks.xstream:xstream:1.4.10'
     implementation 'javax.xml.bind:jaxb-api:2.2.11'
     implementation 'com.sun.xml.bind:jaxb-core:2.2.11'
     implementation 'com.sun.xml.bind:jaxb-impl:2.2.11'

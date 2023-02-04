@@ -6,17 +6,20 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.file.FlatFileItemReader;
-import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
+import org.springframework.batch.item.xml.StaxEventItemWriter;
+import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.oxm.xstream.XStreamMarshaller;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @EnableBatchProcessing
 @Configuration
@@ -33,7 +36,6 @@ public class FormattedTextFileJob {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    @StepScope
     public FlatFileItemReader<Customer2> customerFileReader() {
         Resource inputFile = new ClassPathResource("input/customer.csv");
 
@@ -53,38 +55,38 @@ public class FormattedTextFileJob {
     }
 
     @Bean
-    @StepScope
-    public FlatFileItemWriter<Customer2> customerItemWriter() {
-        Resource outputFile = new FileSystemResource("output/delimitedCustomers.txt");
+    public StaxEventItemWriter<Customer2> xmlCustomerWriter() {
+        Resource outputFile = new FileSystemResource("output/xmlCustomer.xml");
 
-        return new FlatFileItemWriterBuilder<Customer2>()
+        Map<String, Class> aliases = new HashMap<>();
+        aliases.put("custmer", Customer2.class);
+
+        XStreamMarshaller marshaller = new XStreamMarshaller();
+        marshaller.setAliases(aliases);
+        marshaller.setAutodetectAnnotations(true);
+        marshaller.afterPropertiesSet();
+
+        return new StaxEventItemWriterBuilder<Customer2>()
                 .name("customerItemWriter")
                 .resource(outputFile)
-                .delimited()
-                .delimiter(";")
-                .names(new String[]{"zip",
-                        "state",
-                        "city",
-                        "address",
-                        "lastName",
-                        "firstName"})
-                .append(true)
+                .marshaller(marshaller)
+                .rootTagName("customers")
                 .build();
     }
 
     @Bean
-    public Step formatStep() {
-        return this.stepBuilderFactory.get("formatStep")
+    public Step xmlFormatStep() {
+        return this.stepBuilderFactory.get("xmlFormatStep")
                 .<Customer2, Customer2> chunk(10)
                 .reader(customerFileReader())
-                .writer(customerItemWriter())
+                .writer(xmlCustomerWriter())
                 .build();
     }
 
     @Bean
-    public Job formatJob() {
-        return this.jobBuilderFactory.get("formatJob")
-                .start(formatStep())
+    public Job xmlFormatJob() {
+        return this.jobBuilderFactory.get("xmlFormatJob")
+                .start(xmlFormatStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
