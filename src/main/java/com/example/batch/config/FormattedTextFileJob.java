@@ -1,7 +1,6 @@
 package com.example.batch.config;
 
 import com.example.batch.domain.Customer2;
-import com.example.batch.preparedstatementsetter.CustomerItemPreparedStatementSetter;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -63,8 +62,14 @@ public class FormattedTextFileJob {
                         "address, " +
                         "city, " +
                         "state, " +
-                        "zip) VALUES (?, ?, ?, ?, ?, ?, ?)")
-                .itemPreparedStatementSetter(new CustomerItemPreparedStatementSetter())
+                        "zip) VALUES (:firstName, " +
+                        ":middleInitial, " +
+                        ":lastName, " +
+                        ":address, " +
+                        ":city, " +
+                        ":state, " +
+                        ":zip)")
+                .beanMapped()
                 .build();
     }
 
