@@ -5,7 +5,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "hibernateCustomer")
-public class HibernateCustomer implements Serializable {
+public class JpaCustomer implements Serializable {
     private static final long serialVersionID = 1L;
 
     @Id

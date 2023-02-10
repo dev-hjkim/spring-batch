@@ -1,15 +1,13 @@
 package com.example.batch.config;
 
-import com.example.batch.domain.HibernateCustomer;
-import org.hibernate.SessionFactory;
+import com.example.batch.domain.JpaCustomer;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.database.HibernateItemWriter;
-import org.springframework.batch.item.database.builder.HibernateItemWriterBuilder;
+import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.context.annotation.Bean;
@@ -37,10 +35,10 @@ public class FormattedTextFileJob {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public FlatFileItemReader<HibernateCustomer> customerFileReader() {
+    public FlatFileItemReader<JpaCustomer> customerFileReader() {
         Resource inputFile = new ClassPathResource("input/customer.csv");
 
-        return new FlatFileItemReaderBuilder<HibernateCustomer>()
+        return new FlatFileItemReaderBuilder<JpaCustomer>()
                 .name("customerFileReader")
                 .delimited()
                 .names(new String[] {"firstName",
@@ -50,31 +48,31 @@ public class FormattedTextFileJob {
                         "city",
                         "state",
                         "zip"})
-                .targetType(HibernateCustomer.class)
+                .targetType(JpaCustomer.class)
                 .resource(inputFile)
                 .build();
     }
 
     @Bean
-    public HibernateItemWriter<HibernateCustomer> hibernateItemWriter(EntityManagerFactory entityManager) {
-        return new HibernateItemWriterBuilder<HibernateCustomer>()
-                .sessionFactory(entityManager.unwrap(SessionFactory.class))
-                .build();
+    public JpaItemWriter<JpaCustomer> jpaItemWriter(EntityManagerFactory entityManager) {
+        JpaItemWriter<JpaCustomer> jpaItemWriter = new JpaItemWriter<>();
+        jpaItemWriter.setEntityManagerFactory(entityManager);
+        return jpaItemWriter;
     }
 
     @Bean
-    public Step hibernateFormatStep() throws Exception {
-        return this.stepBuilderFactory.get("hibernateFormatStep")
-                .<HibernateCustomer, HibernateCustomer> chunk(10)
+    public Step jpaFormatStep() throws Exception {
+        return this.stepBuilderFactory.get("jpaFormatStep")
+                .<JpaCustomer, JpaCustomer> chunk(10)
                 .reader(customerFileReader())
-                .writer(hibernateItemWriter(entityManager))
+                .writer(jpaItemWriter(entityManager))
                 .build();
     }
 
     @Bean
-    public Job hibernateFormatJob() throws Exception {
-        return this.jobBuilderFactory.get("hibernateFormatJob")
-                .start(hibernateFormatStep())
+    public Job jpaFormatJob() throws Exception {
+        return this.jobBuilderFactory.get("jpaFormatJob")
+                .start(jpaFormatStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
