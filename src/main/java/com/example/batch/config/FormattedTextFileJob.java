@@ -1,19 +1,21 @@
 package com.example.batch.config;
 
-import com.example.batch.domain.JpaCustomer;
+import com.example.batch.domain.MongoCustomer;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.database.JpaItemWriter;
+import org.springframework.batch.item.data.MongoItemWriter;
+import org.springframework.batch.item.data.builder.MongoItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.mongodb.core.MongoOperations;
 
 import javax.persistence.EntityManagerFactory;
 
@@ -22,23 +24,20 @@ import javax.persistence.EntityManagerFactory;
 public class FormattedTextFileJob {
     private JobBuilderFactory jobBuilderFactory;
     private StepBuilderFactory stepBuilderFactory;
-    private EntityManagerFactory entityManager;
 
     public FormattedTextFileJob(JobBuilderFactory jobBuilderFactory,
-                                StepBuilderFactory stepBuilderFactory,
-                                EntityManagerFactory entityManager) {
+                                StepBuilderFactory stepBuilderFactory) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
-        this.entityManager = entityManager;
     }
 
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public FlatFileItemReader<JpaCustomer> customerFileReader() {
+    public FlatFileItemReader<MongoCustomer> customerFileReader() {
         Resource inputFile = new ClassPathResource("input/customer.csv");
 
-        return new FlatFileItemReaderBuilder<JpaCustomer>()
+        return new FlatFileItemReaderBuilder<MongoCustomer>()
                 .name("customerFileReader")
                 .delimited()
                 .names(new String[] {"firstName",
@@ -48,31 +47,32 @@ public class FormattedTextFileJob {
                         "city",
                         "state",
                         "zip"})
-                .targetType(JpaCustomer.class)
+                .targetType(MongoCustomer.class)
                 .resource(inputFile)
                 .build();
     }
 
     @Bean
-    public JpaItemWriter<JpaCustomer> jpaItemWriter(EntityManagerFactory entityManager) {
-        JpaItemWriter<JpaCustomer> jpaItemWriter = new JpaItemWriter<>();
-        jpaItemWriter.setEntityManagerFactory(entityManager);
-        return jpaItemWriter;
-    }
-
-    @Bean
-    public Step jpaFormatStep() throws Exception {
-        return this.stepBuilderFactory.get("jpaFormatStep")
-                .<JpaCustomer, JpaCustomer> chunk(10)
-                .reader(customerFileReader())
-                .writer(jpaItemWriter(entityManager))
+    public MongoItemWriter<MongoCustomer> mongoItemWriter(MongoOperations mongoTemplate) {
+        return new MongoItemWriterBuilder<MongoCustomer>()
+                .collection("customers")
+                .template(mongoTemplate)
                 .build();
     }
 
     @Bean
-    public Job jpaFormatJob() throws Exception {
-        return this.jobBuilderFactory.get("jpaFormatJob")
-                .start(jpaFormatStep())
+    public Step mongoFormatStep() throws Exception {
+        return this.stepBuilderFactory.get("jpaFormatStep")
+                .<MongoCustomer, MongoCustomer> chunk(10)
+                .reader(customerFileReader())
+                .writer(mongoItemWriter(null))
+                .build();
+    }
+
+    @Bean
+    public Job mongoFormatJob() throws Exception {
+        return this.jobBuilderFactory.get("mongoFormatJob")
+                .start(mongoFormatStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
