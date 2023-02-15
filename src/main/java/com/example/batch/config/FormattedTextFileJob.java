@@ -1,50 +1,47 @@
 package com.example.batch.config;
 
-import com.example.batch.domain.GemfireCustomer;
-import org.apache.geode.cache.GemFireCache;
-import org.apache.geode.cache.Region;
+import com.example.batch.domain.JpaCustomer;
+import com.example.batch.repository.JpaCustomerRepository;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.SpELItemKeyMapper;
-import org.springframework.batch.item.data.GemfireItemWriter;
-import org.springframework.batch.item.data.builder.GemfireItemWriterBuilder;
+import org.springframework.batch.item.data.RepositoryItemWriter;
+import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.data.gemfire.GemfireTemplate;
-import org.springframework.data.gemfire.LocalRegionFactoryBean;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-import java.util.List;
 
 @EnableBatchProcessing
 @Configuration
-@PeerCacheApplication(name = "AccessingDataGemFireApplication", logLevel = "info")
+@EnableJpaRepositories(basePackageClasses = JpaCustomerRepository.class)
 public class FormattedTextFileJob {
     private JobBuilderFactory jobBuilderFactory;
     private StepBuilderFactory stepBuilderFactory;
+    private JpaCustomerRepository jpaCustomerRepository;
 
     public FormattedTextFileJob(JobBuilderFactory jobBuilderFactory,
-                                StepBuilderFactory stepBuilderFactory) {
+                                StepBuilderFactory stepBuilderFactory,
+                                JpaCustomerRepository jpaCustomerRepository) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
+        this.jpaCustomerRepository = jpaCustomerRepository;
     }
 
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public FlatFileItemReader<GemfireCustomer> customerFileReader() {
+    public FlatFileItemReader<JpaCustomer> customerFileReader() {
         Resource inputFile = new ClassPathResource("input/customer.csv");
 
-        return new FlatFileItemReaderBuilder<GemfireCustomer>()
+        return new FlatFileItemReaderBuilder<JpaCustomer>()
                 .name("customerFileReader")
                 .delimited()
                 .names(new String[] {"firstName",
@@ -54,60 +51,33 @@ public class FormattedTextFileJob {
                         "city",
                         "state",
                         "zip"})
-                .targetType(GemfireCustomer.class)
+                .targetType(JpaCustomer.class)
                 .resource(inputFile)
                 .build();
     }
 
     @Bean
-    public GemfireItemWriter<Long, GemfireCustomer> gemfireItemWriter(GemfireTemplate gemfireTemplate) {
-        return new GemfireItemWriterBuilder<Long, GemfireCustomer>()
-                .template(gemfireTemplate)
-                .itemKeyMapper(new SpELItemKeyMapper<>(
-                        "firstName + middleInitial + lastName"))
+    public RepositoryItemWriter<JpaCustomer> repositoryItemWriter(JpaCustomerRepository repository) {
+        return new RepositoryItemWriterBuilder<JpaCustomer>()
+                .repository(repository)
+                .methodName("save")
                 .build();
     }
 
     @Bean
-    public Step gemfireFormatStep() throws Exception {
-        return this.stepBuilderFactory.get("gemfireFormatStep")
-                .<GemfireCustomer, GemfireCustomer> chunk(10)
+    public Step repositoryFormatStep() throws Exception {
+        return this.stepBuilderFactory.get("repositoryFormatStep")
+                .<JpaCustomer, JpaCustomer> chunk(10)
                 .reader(customerFileReader())
-                .writer(gemfireItemWriter(null))
+                .writer(repositoryItemWriter(jpaCustomerRepository))
                 .build();
     }
 
     @Bean
-    public Job gemfireFormatJob() throws Exception {
-        return this.jobBuilderFactory.get("gemfireFormatJob")
-                .start(gemfireFormatStep())
+    public Job repositoryFormatJob() throws Exception {
+        return this.jobBuilderFactory.get("repositoryFormatJob")
+                .start(repositoryFormatStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
-    }
-
-    @Bean(name = "gemfireCustomer")
-    public Region<Long, GemfireCustomer> getGemfireCustomer(final GemFireCache cache) throws Exception {
-        LocalRegionFactoryBean<Long, GemfireCustomer> customerRegion = new LocalRegionFactoryBean<>();
-        customerRegion.setCache(cache);
-        customerRegion.setName("gemfireCustomer");
-        customerRegion.afterPropertiesSet();
-        Region<Long, GemfireCustomer> object = customerRegion.getRegion();
-        return object;
-    }
-
-    @Bean
-    public GemfireTemplate gemfireTemplate() throws Exception {
-        return new GemfireTemplate(getGemfireCustomer(null));
-    }
-
-    @Bean
-    public CommandLineRunner validator(final GemfireTemplate gemfireTemplate) {
-        return args -> {
-            List<Object> customers = gemfireTemplate.find("select * from /gemfireCustomer").asList();
-
-            for (Object customer : customers) {
-                System.out.println(">> object: " + customer);
-            }
-        };
     }
 }

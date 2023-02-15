@@ -4,7 +4,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "hibernateCustomer")
+@Table(name = "jpaCustomer")
 public class JpaCustomer implements Serializable {
     private static final long serialVersionID = 1L;
 
