@@ -2,14 +2,14 @@ package com.example.batch.config;
 
 import com.example.batch.domain.JpaCustomer;
 import com.example.batch.repository.JpaCustomerRepository;
+import com.example.batch.service.LoggingService;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.data.RepositoryItemWriter;
-import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder;
+import org.springframework.batch.item.adapter.ItemWriterAdapter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.context.annotation.Bean;
@@ -25,14 +25,11 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 public class FormattedTextFileJob {
     private JobBuilderFactory jobBuilderFactory;
     private StepBuilderFactory stepBuilderFactory;
-    private JpaCustomerRepository jpaCustomerRepository;
 
     public FormattedTextFileJob(JobBuilderFactory jobBuilderFactory,
-                                StepBuilderFactory stepBuilderFactory,
-                                JpaCustomerRepository jpaCustomerRepository) {
+                                StepBuilderFactory stepBuilderFactory) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
-        this.jpaCustomerRepository = jpaCustomerRepository;
     }
 
     //////////////////////////// STEP 1 ////////////////////////////
@@ -57,26 +54,28 @@ public class FormattedTextFileJob {
     }
 
     @Bean
-    public RepositoryItemWriter<JpaCustomer> repositoryItemWriter(JpaCustomerRepository repository) {
-        return new RepositoryItemWriterBuilder<JpaCustomer>()
-                .repository(repository)
-                .methodName("save")
-                .build();
+    public ItemWriterAdapter<JpaCustomer> itemWriter(LoggingService loggingService) {
+        ItemWriterAdapter<JpaCustomer> customerItemWriterAdapter = new ItemWriterAdapter<>();
+
+        customerItemWriterAdapter.setTargetObject(loggingService);
+        customerItemWriterAdapter.setTargetMethod("logCustomer");
+
+        return customerItemWriterAdapter;
     }
 
     @Bean
-    public Step repositoryFormatStep() throws Exception {
-        return this.stepBuilderFactory.get("repositoryFormatStep")
+    public Step formatStep() throws Exception {
+        return this.stepBuilderFactory.get("formatStep")
                 .<JpaCustomer, JpaCustomer> chunk(10)
                 .reader(customerFileReader())
-                .writer(repositoryItemWriter(jpaCustomerRepository))
+                .writer(itemWriter(null))
                 .build();
     }
 
     @Bean
-    public Job repositoryFormatJob() throws Exception {
-        return this.jobBuilderFactory.get("repositoryFormatJob")
-                .start(repositoryFormatStep())
+    public Job itemWriterAdapterFormatJob() throws Exception {
+        return this.jobBuilderFactory.get("itemWriterAdapterFormatJob")
+                .start(formatStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
