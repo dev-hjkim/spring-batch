@@ -1,35 +1,31 @@
 package com.example.batch.config;
 
-import com.example.batch.domain.Customer2;
+import com.example.batch.domain.CustomerWithEmail;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.database.JdbcBatchItemWriter;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.jms.JmsItemReader;
-import org.springframework.batch.item.jms.JmsItemWriter;
-import org.springframework.batch.item.jms.builder.JmsItemReaderBuilder;
-import org.springframework.batch.item.jms.builder.JmsItemWriterBuilder;
-import org.springframework.batch.item.xml.StaxEventItemWriter;
-import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
+import org.springframework.batch.item.mail.SimpleMailMessageItemWriter;
+import org.springframework.batch.item.mail.builder.SimpleMailMessageItemWriterBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.jms.connection.CachingConnectionFactory;
-import org.springframework.jms.core.JmsTemplate;
-import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
-import org.springframework.jms.support.converter.MessageConverter;
-import org.springframework.jms.support.converter.MessageType;
-import org.springframework.oxm.xstream.XStreamMarshaller;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.mail.MailSender;
+import org.springframework.mail.SimpleMailMessage;
 
-import javax.jms.ConnectionFactory;
-import java.util.HashMap;
-import java.util.Map;
+import javax.sql.DataSource;
 
 
 @EnableBatchProcessing
@@ -44,34 +40,13 @@ public class FormattedTextFileJob {
         this.stepBuilderFactory = stepBuilderFactory;
     }
 
-    @Bean
-    public MessageConverter jacksonJmsMessageConverter() {
-        MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
-        converter.setTargetType(MessageType.TEXT);
-        converter.setTypeIdPropertyName("_type");
-        return converter;
-    }
-
-    @Bean
-    public JmsTemplate jmsTemplate(ConnectionFactory connectionFactory) {
-        CachingConnectionFactory cachingConnectionFactory = new CachingConnectionFactory(connectionFactory);
-        cachingConnectionFactory.afterPropertiesSet();
-
-        JmsTemplate jmsTemplate = new JmsTemplate(cachingConnectionFactory);
-        jmsTemplate.setDefaultDestinationName("customers");
-        jmsTemplate.setMessageConverter(jacksonJmsMessageConverter());
-        jmsTemplate.setReceiveTimeout(500L);
-
-        return jmsTemplate;
-    }
-
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public FlatFileItemReader<Customer2> customerFileReader() {
-        Resource inputFile = new ClassPathResource("input/customer.csv");
+    public FlatFileItemReader<CustomerWithEmail> customerEmailFileReader() {
+        Resource inputFile = new ClassPathResource("input/customerWithEmail.csv");
 
-        return new FlatFileItemReaderBuilder<Customer2>()
+        return new FlatFileItemReaderBuilder<CustomerWithEmail>()
                 .name("customerFileReader")
                 .delimited()
                 .names(new String[] {"firstName",
@@ -80,68 +55,75 @@ public class FormattedTextFileJob {
                         "address",
                         "city",
                         "state",
-                        "zip"})
-                .targetType(Customer2.class)
+                        "zip",
+                        "email"})
+                .targetType(CustomerWithEmail.class)
                 .resource(inputFile)
                 .build();
     }
 
     @Bean
-    public StaxEventItemWriter<Customer2> xmlOutputWriter() {
-        Resource outputFile = new FileSystemResource("output/jmsCustomer.xml");
-
-        Map<String, Class> aliases = new HashMap<>();
-        aliases.put("customer", Customer2.class);
-
-        XStreamMarshaller marshaller = new XStreamMarshaller();
-        marshaller.setAliases(aliases);
-
-        return new StaxEventItemWriterBuilder<Customer2>()
-                .name("xmlOutputWriter")
-                .resource(outputFile)
-                .marshaller(marshaller)
-                .rootTagName("customers")
+    public JdbcBatchItemWriter<CustomerWithEmail> customerBatchWriter(DataSource dataSource) {
+        return new JdbcBatchItemWriterBuilder<CustomerWithEmail>()
+                .namedParametersJdbcTemplate(new NamedParameterJdbcTemplate(dataSource))
+                .sql("INSERT INTO CUSTOMER_WITH_EMAIL (first_name, middle_initial, last_name, " +
+                        "address, city, state, zip, email) " +
+                        "VALUES(:firstName, :middleInitial, :lastName," +
+                        ":address, :city, :state, :zip, :email)")
+                .beanMapped()
                 .build();
     }
 
     @Bean
-    public JmsItemReader<Customer2> jmsItemReader(JmsTemplate jmsTemplate) {
-        return new JmsItemReaderBuilder<Customer2>()
-                .jmsTemplate(jmsTemplate)
-                .itemType(Customer2.class)
+    public JdbcCursorItemReader<CustomerWithEmail> customerCursorItemReader(DataSource dataSource) {
+        return new JdbcCursorItemReaderBuilder<CustomerWithEmail>()
+                .name("customerItemReader")
+                .dataSource(dataSource)
+                .sql("select * from customer_with_email")
+                .rowMapper(new BeanPropertyRowMapper<>(CustomerWithEmail.class))
                 .build();
     }
 
     @Bean
-    public JmsItemWriter<Customer2> jmsItemWriter(JmsTemplate jmsTemplate) {
-        return new JmsItemWriterBuilder<Customer2>()
-                .jmsTemplate(jmsTemplate)
+    public SimpleMailMessageItemWriter emailItemWriter(MailSender mailSender) {
+        return new SimpleMailMessageItemWriterBuilder()
+                .mailSender(mailSender)
                 .build();
     }
 
     @Bean
-    public Step formatInputStep() throws Exception {
-        return this.stepBuilderFactory.get("formatInputStep")
-                .<Customer2, Customer2>chunk(10)
-                .reader(customerFileReader())
-                .writer(jmsItemWriter(null))
+    public Step importStep() throws Exception {
+        return this.stepBuilderFactory.get("importStep")
+                .<CustomerWithEmail, CustomerWithEmail>chunk(10)
+                .reader(customerEmailFileReader())
+                .writer(customerBatchWriter(null))
                 .build();
     }
 
     @Bean
-    public Step formatOutputStep() throws Exception {
-        return this.stepBuilderFactory.get("formatOutputStep")
-                .<Customer2, Customer2>chunk(10)
-                .reader(jmsItemReader(null))
-                .writer(xmlOutputWriter())
+    public Step emailStep() throws Exception {
+        return this.stepBuilderFactory.get("emailStep")
+                .<CustomerWithEmail, SimpleMailMessage>chunk(10)
+                .reader(customerCursorItemReader(null))
+                .processor((ItemProcessor<CustomerWithEmail, SimpleMailMessage>) customer -> {
+                    SimpleMailMessage mail = new SimpleMailMessage();
+                    mail.setFrom("prospringbatch@gmail.com");
+                    mail.setTo(customer.getEmail());
+                    mail.setSubject("Welcome!");
+                    mail.setText(String.format("Welcome %s %s,\nYou were " +
+                            "imported into the system using Spring Batch!",
+                            customer.getFirstName(), customer.getLastName()));
+                    return mail;
+                } )
+                .writer(emailItemWriter(null))
                 .build();
     }
 
     @Bean
-    public Job jmsFormatJob() throws Exception {
-        return this.jobBuilderFactory.get("jmsFormatJob")
-                .start(formatInputStep())
-                .next(formatOutputStep())
+    public Job emailJob() throws Exception {
+        return this.jobBuilderFactory.get("emailJob")
+                .start(importStep())
+                .next(emailStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
