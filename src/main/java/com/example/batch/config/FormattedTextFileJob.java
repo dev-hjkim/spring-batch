@@ -1,5 +1,6 @@
 package com.example.batch.config;
 
+import com.example.batch.callback.CustomerXmlHeaderCallback;
 import com.example.batch.domain.CustomerWithEmail;
 import com.example.batch.suffixCreator.CustomerOutputFileSuffixCreator;
 import org.springframework.batch.core.Job;
@@ -38,13 +39,16 @@ public class FormattedTextFileJob {
     private JobBuilderFactory jobBuilderFactory;
     private StepBuilderFactory stepBuilderFactory;
     private CustomerOutputFileSuffixCreator customerOutputFileSuffixCreator;
+    private CustomerXmlHeaderCallback headerCallback;
 
     public FormattedTextFileJob(JobBuilderFactory jobBuilderFactory,
                                 StepBuilderFactory stepBuilderFactory,
-                                CustomerOutputFileSuffixCreator customerOutputFileSuffixCreator) {
+                                CustomerOutputFileSuffixCreator customerOutputFileSuffixCreator,
+                                CustomerXmlHeaderCallback headerCallback) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
         this.customerOutputFileSuffixCreator = customerOutputFileSuffixCreator;
+        this.headerCallback = headerCallback;
     }
 
     //////////////////////////// STEP 1 ////////////////////////////
@@ -92,7 +96,8 @@ public class FormattedTextFileJob {
     }
 
     @Bean
-    public StaxEventItemWriter<CustomerWithEmail> delegateItemWriter() throws Exception {
+    public StaxEventItemWriter<CustomerWithEmail> delegateItemWriter(
+            CustomerXmlHeaderCallback headerCallback) throws Exception {
         Map<String, Class> aliases = new HashMap<>();
         aliases.put("customer", CustomerWithEmail.class);
 
@@ -104,6 +109,7 @@ public class FormattedTextFileJob {
                 .name("customerItemWriter")
                 .marshaller(marshaller)
                 .rootTagName("customers")
+                .headerCallback(headerCallback)
                 .build();
     }
 
@@ -113,7 +119,7 @@ public class FormattedTextFileJob {
     ) throws Exception {
         return new MultiResourceItemWriterBuilder<CustomerWithEmail>()
                 .name("multiCustomerFileWriter")
-                .delegate(delegateItemWriter())
+                .delegate(delegateItemWriter(headerCallback))
                 .itemCountLimitPerResource(25)
                 .resource(new FileSystemResource("output/multiResourceCustomer"))
                 .resourceSuffixCreator(suffixCreator)
