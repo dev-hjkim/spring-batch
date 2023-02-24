@@ -1,6 +1,6 @@
 package com.example.batch.config;
 
-import com.example.batch.callback.CustomerXmlHeaderCallback;
+import com.example.batch.callback.CustomerRecordCountFooterCallback;
 import com.example.batch.domain.CustomerWithEmail;
 import com.example.batch.suffixCreator.CustomerOutputFileSuffixCreator;
 import org.springframework.batch.core.Job;
@@ -14,11 +14,12 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.MultiResourceItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.builder.MultiResourceItemWriterBuilder;
-import org.springframework.batch.item.xml.StaxEventItemWriter;
-import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
+import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
+import org.springframework.batch.item.file.transform.FormatterLineAggregator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -26,11 +27,8 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.oxm.xstream.XStreamMarshaller;
 
 import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
 
 
 @EnableBatchProcessing
@@ -38,17 +36,14 @@ import java.util.Map;
 public class FormattedTextFileJob {
     private JobBuilderFactory jobBuilderFactory;
     private StepBuilderFactory stepBuilderFactory;
-    private CustomerOutputFileSuffixCreator customerOutputFileSuffixCreator;
-    private CustomerXmlHeaderCallback headerCallback;
+    private CustomerRecordCountFooterCallback footerCallback;
 
     public FormattedTextFileJob(JobBuilderFactory jobBuilderFactory,
                                 StepBuilderFactory stepBuilderFactory,
-                                CustomerOutputFileSuffixCreator customerOutputFileSuffixCreator,
-                                CustomerXmlHeaderCallback headerCallback) {
+                                CustomerRecordCountFooterCallback footerCallback) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
-        this.customerOutputFileSuffixCreator = customerOutputFileSuffixCreator;
-        this.headerCallback = headerCallback;
+        this.footerCallback = footerCallback;
     }
 
     //////////////////////////// STEP 1 ////////////////////////////
@@ -96,33 +91,34 @@ public class FormattedTextFileJob {
     }
 
     @Bean
-    public StaxEventItemWriter<CustomerWithEmail> delegateItemWriter(
-            CustomerXmlHeaderCallback headerCallback) throws Exception {
-        Map<String, Class> aliases = new HashMap<>();
-        aliases.put("customer", CustomerWithEmail.class);
+    public FlatFileItemWriter<CustomerWithEmail> delegateItemWriter(
+            CustomerRecordCountFooterCallback footerCallback) throws Exception {
+        BeanWrapperFieldExtractor<CustomerWithEmail> fieldExtractor = new BeanWrapperFieldExtractor<>();
+        fieldExtractor.setNames(new String[] {"firstName", "lastName", "address", "city", "state", "zip"});
+        fieldExtractor.afterPropertiesSet();
 
-        XStreamMarshaller marshaller = new XStreamMarshaller();
-        marshaller.setAliases(aliases);
-        marshaller.afterPropertiesSet();
+        FormatterLineAggregator<CustomerWithEmail> lineAggregator = new FormatterLineAggregator<>();
 
-        return new StaxEventItemWriterBuilder<CustomerWithEmail>()
-                .name("customerItemWriter")
-                .marshaller(marshaller)
-                .rootTagName("customers")
-                .headerCallback(headerCallback)
-                .build();
+        lineAggregator.setFormat("%s %s lives at %s %s in %s, %s.");
+        lineAggregator.setFieldExtractor(fieldExtractor);
+
+        FlatFileItemWriter<CustomerWithEmail> itemWriter = new FlatFileItemWriter<>();
+
+        itemWriter.setName("delegateCustomerItemWriter");
+        itemWriter.setLineAggregator(lineAggregator);
+        itemWriter.setAppendAllowed(true);
+        itemWriter.setFooterCallback(footerCallback);
+
+        return itemWriter;
     }
 
     @Bean
-    public MultiResourceItemWriter<CustomerWithEmail> multiCustomerFileWriter(
-            CustomerOutputFileSuffixCreator suffixCreator
-    ) throws Exception {
+    public MultiResourceItemWriter<CustomerWithEmail> multiCustomerFileWriter() throws Exception {
         return new MultiResourceItemWriterBuilder<CustomerWithEmail>()
                 .name("multiCustomerFileWriter")
-                .delegate(delegateItemWriter(headerCallback))
+                .delegate(delegateItemWriter(footerCallback))
                 .itemCountLimitPerResource(25)
-                .resource(new FileSystemResource("output/multiResourceCustomer"))
-                .resourceSuffixCreator(suffixCreator)
+                .resource(new FileSystemResource("output/multiResourceCustomerWithFooter"))
                 .build();
     }
 
@@ -136,19 +132,19 @@ public class FormattedTextFileJob {
     }
 
     @Bean
-    public Step multiXmlGeneratorStep() throws Exception {
-        return this.stepBuilderFactory.get("multiXmlGeneratorStep")
+    public Step multiFileGeneratorStep() throws Exception {
+        return this.stepBuilderFactory.get("multiFileGeneratorStep")
                 .<CustomerWithEmail, CustomerWithEmail>chunk(10)
                 .reader(customerCursorItemReader(null))
-                .writer(multiCustomerFileWriter(customerOutputFileSuffixCreator))
+                .writer(multiCustomerFileWriter())
                 .build();
     }
 
     @Bean
-    public Job xmlGeneratorJob() throws Exception {
-        return this.jobBuilderFactory.get("xmlGeneratorJob")
+    public Job fileGeneratorJob() throws Exception {
+        return this.jobBuilderFactory.get("fileGeneratorJob")
                 .start(importStep())
-                .next(multiXmlGeneratorStep())
+                .next(multiFileGeneratorStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
