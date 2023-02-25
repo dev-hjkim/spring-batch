@@ -1,5 +1,6 @@
 package com.example.batch.config;
 
+import com.example.batch.classifier.StateClassifier;
 import com.example.batch.domain.CustomerWithEmail;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -7,14 +8,16 @@ import org.springframework.batch.core.configuration.annotation.EnableBatchProces
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.support.CompositeItemWriter;
-import org.springframework.batch.item.support.builder.CompositeItemWriterBuilder;
+import org.springframework.batch.item.support.ClassifierCompositeItemWriter;
+import org.springframework.batch.item.support.builder.ClassifierCompositeItemWriterBuilder;
 import org.springframework.batch.item.xml.StaxEventItemWriter;
 import org.springframework.batch.item.xml.builder.StaxEventItemWriterBuilder;
+import org.springframework.classify.Classifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -24,7 +27,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.oxm.xstream.XStreamMarshaller;
 
 import javax.sql.DataSource;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,11 +46,11 @@ public class FormattedTextFileJob {
     //////////////////////////// STEP 1 ////////////////////////////
 
     @Bean
-    public FlatFileItemReader<CustomerWithEmail> compositeWriterItemReader() {
+    public FlatFileItemReader<CustomerWithEmail> classifierCompositeWriterItemReader() {
         Resource inputFile = new ClassPathResource("input/customerWithEmail.csv");
 
         return new FlatFileItemReaderBuilder<CustomerWithEmail>()
-                .name("compositeWriterItemReader")
+                .name("classifierCompositeWriterItemReader")
                 .delimited()
                 .names(new String[] {"firstName",
                         "middleInitial",
@@ -65,7 +67,7 @@ public class FormattedTextFileJob {
 
     @Bean
     public StaxEventItemWriter<CustomerWithEmail> xmlDelegateItemWriter() {
-        Resource outputFile = new FileSystemResource("output/compositeXmlCustomer.xml");
+        Resource outputFile = new FileSystemResource("output/classifierCompositeXmlCustomer.xml");
 
         Map<String, Class> aliases = new HashMap<>();
         aliases.put("customer", CustomerWithEmail.class);
@@ -95,25 +97,29 @@ public class FormattedTextFileJob {
     }
 
     @Bean
-    public CompositeItemWriter<CustomerWithEmail> compositeItemWriter() throws Exception {
-        return new CompositeItemWriterBuilder<CustomerWithEmail>()
-                .delegates(Arrays.asList(xmlDelegateItemWriter(), jdbcDelegateItemWriter(null)))
+    public ClassifierCompositeItemWriter<CustomerWithEmail> classifierCompositeItemWriter() throws Exception {
+        Classifier<CustomerWithEmail, ItemWriter<? super CustomerWithEmail>> classifier =
+                new StateClassifier(xmlDelegateItemWriter(), jdbcDelegateItemWriter(null));
+
+        return new ClassifierCompositeItemWriterBuilder<CustomerWithEmail>()
+                .classifier(classifier)
                 .build();
     }
 
     @Bean
-    public Step compositeWriterStep() throws Exception {
-        return this.stepBuilderFactory.get("compositeWriterStep")
+    public Step classifierCompositeWriterStep() throws Exception {
+        return this.stepBuilderFactory.get("classifierCompositeWriterStep")
                 .<CustomerWithEmail, CustomerWithEmail>chunk(10)
-                .reader(compositeWriterItemReader())
-                .writer(compositeItemWriter())
+                .reader(classifierCompositeWriterItemReader())
+                .writer(classifierCompositeItemWriter())
+                .stream(xmlDelegateItemWriter())
                 .build();
     }
 
     @Bean
-    public Job compositeWriterJob() throws Exception {
-        return this.jobBuilderFactory.get("compositeWriterJob")
-                .start(compositeWriterStep())
+    public Job classifierCompositeWriterJob() throws Exception {
+        return this.jobBuilderFactory.get("classifierCompositeWriterJob")
+                .start(classifierCompositeWriterStep())
                 .incrementer(new RunIdIncrementer())
                 .build();
     }
