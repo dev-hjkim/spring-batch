@@ -4,6 +4,7 @@ import com.example.batch.domain.CustomerAddressUpdate;
 import com.example.batch.domain.CustomerContactUpdate;
 import com.example.batch.domain.CustomerNameUpdate;
 import com.example.batch.domain.CustomerUpdate;
+import com.example.batch.validator.CustomerItemValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
@@ -34,6 +35,9 @@ public class ImportJobConfiguration {
     @Autowired
     private StepBuilderFactory stepBuilderFactory;
 
+    @Autowired
+    private CustomerItemValidator validator;
+
 
     @Bean
     public Job job() throws Exception {
@@ -47,7 +51,7 @@ public class ImportJobConfiguration {
         return this.stepBuilderFactory.get("importCustomerUpdates")
                 .<CustomerUpdate, CustomerUpdate>chunk(100)
                 .reader(customerUpdateItemReader())
-                .processor(customerValidatingItemProcessor())
+                .processor(customerValidatingItemProcessor(validator))
                 .writer(customerUpdateItemWriter())
                 .build();
     }
@@ -137,9 +141,12 @@ public class ImportJobConfiguration {
     }
 
     @Bean
-    public ValidatingItemProcessor<CustomerUpdate> customerValidatingItemProcessor() {
+    public ValidatingItemProcessor<CustomerUpdate> customerValidatingItemProcessor(
+            CustomerItemValidator validator
+    ) {
         ValidatingItemProcessor<CustomerUpdate> customerValidatingItemProcessor =
-                new ValidatingItemProcessor<>();
+                new ValidatingItemProcessor<>(validator);
+        customerValidatingItemProcessor.setFilter(true);
         return customerValidatingItemProcessor;
     }
 
