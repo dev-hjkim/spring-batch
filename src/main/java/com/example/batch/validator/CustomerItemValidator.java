@@ -15,7 +15,7 @@ public class CustomerItemValidator implements Validator<CustomerUpdate> {
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     private static final String FIND_CUSTOMER =
-            "SELECT COUNT(*) FROM CUSTOMER_WITH_EMAIL WHERE id = :id";
+            "SELECT COUNT(*) FROM APP_CUSTOMER WHERE customer_id = :id";
 
     public CustomerItemValidator(DataSource dataSource) {
         this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
