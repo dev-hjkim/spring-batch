@@ -1,12 +1,9 @@
 package com.example.batch.config;
 
 import com.example.batch.domain.AppCustomer;
-import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -21,13 +18,10 @@ import javax.sql.DataSource;
 
 @EnableBatchProcessing
 @Configuration
-public class SaveToDbJobConfiguration {
-    private JobBuilderFactory jobBuilderFactory;
+public class SaveToDbStepConfiguration {
     private StepBuilderFactory stepBuilderFactory;
 
-    public SaveToDbJobConfiguration(JobBuilderFactory jobBuilderFactory,
-                                StepBuilderFactory stepBuilderFactory) {
-        this.jobBuilderFactory = jobBuilderFactory;
+    public SaveToDbStepConfiguration(StepBuilderFactory stepBuilderFactory) {
         this.stepBuilderFactory = stepBuilderFactory;
     }
 
@@ -78,14 +72,6 @@ public class SaveToDbJobConfiguration {
                 .<AppCustomer, AppCustomer>chunk(10)
                 .reader(rawFileItemReader())
                 .writer(jdbcItemWriter(null))
-                .build();
-    }
-
-    @Bean
-    public Job saveJob() throws Exception {
-        return this.jobBuilderFactory.get("saveJob")
-                .start(saveStep())
-                .incrementer(new RunIdIncrementer())
                 .build();
     }
 }

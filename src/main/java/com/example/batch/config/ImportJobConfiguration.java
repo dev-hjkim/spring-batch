@@ -40,13 +40,17 @@ public class ImportJobConfiguration {
     private StepBuilderFactory stepBuilderFactory;
 
     @Autowired
+    private Step saveStep;
+
+    @Autowired
     private CustomerItemValidator validator;
 
 
     @Bean
     public Job job() throws Exception {
         return this.jobBuilderFactory.get("importJob")
-                .start(importCustomerUpdates())
+                .start(saveStep)
+                .next(importCustomerUpdates())
                 .build();
     }
 
