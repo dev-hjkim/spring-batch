@@ -57,8 +57,8 @@ public class SaveToDbStepConfiguration {
         return new JdbcBatchItemWriterBuilder<AppCustomer>()
                 .namedParametersJdbcTemplate(new NamedParameterJdbcTemplate(dataSource))
                 .sql("INSERT INTO APP_CUSTOMER (first_name, middle_name, last_name, " +
-                        "address1, address2, city, state, postalCode," +
-                        "emailAddress, home_phone, cell_phone, work_phone, notification_pref) " +
+                        "address1, address2, city, state, postal_code," +
+                        "email_address, home_phone, cell_phone, work_phone, notification_pref) " +
                         "VALUES(:firstName, :middleName, :lastName," +
                         ":address1, :address2, :city, :state, :postalCode," +
                         ":emailAddress, :homePhone, :cellPhone, :workPhone, :notificationPref)")
