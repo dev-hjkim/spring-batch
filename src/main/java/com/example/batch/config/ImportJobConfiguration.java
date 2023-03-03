@@ -1,10 +1,7 @@
 package com.example.batch.config;
 
 import com.example.batch.classifier.CustomerUpdateClassifier;
-import com.example.batch.domain.CustomerAddressUpdate;
-import com.example.batch.domain.CustomerContactUpdate;
-import com.example.batch.domain.CustomerNameUpdate;
-import com.example.batch.domain.CustomerUpdate;
+import com.example.batch.domain.*;
 import com.example.batch.validator.CustomerItemValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -20,11 +17,14 @@ import org.springframework.batch.item.file.transform.LineTokenizer;
 import org.springframework.batch.item.file.transform.PatternMatchingCompositeLineTokenizer;
 import org.springframework.batch.item.support.ClassifierCompositeItemWriter;
 import org.springframework.batch.item.validator.ValidatingItemProcessor;
+import org.springframework.batch.item.xml.StaxEventItemReader;
+import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.util.StringUtils;
 
 import javax.sql.DataSource;
@@ -51,8 +51,11 @@ public class ImportJobConfiguration {
         return this.jobBuilderFactory.get("importJob")
                 .start(saveStep)
                 .next(importCustomerUpdates())
+                .next(importTransactions())
                 .build();
     }
+
+    //////////////////////  Step : importCustomerUpdates //////////////////////
 
     @Bean
     public Step importCustomerUpdates() throws Exception {
@@ -215,5 +218,50 @@ public class ImportJobConfiguration {
         compositeItemWriter.setClassifier(classifier);
 
         return compositeItemWriter;
+    }
+
+
+    //////////////////////  Step : importTransactions //////////////////////
+    @Bean
+    public Step importTransactions() {
+        return this.stepBuilderFactory.get("importTransactions")
+                .<Transaction2, Transaction2>chunk(100)
+                .reader(transactionItemReader())
+                .writer(transactionItemWriter(null))
+                .build();
+    }
+
+    @Bean
+    public StaxEventItemReader<Transaction2> transactionItemReader() {
+        Resource transactionFile = new ClassPathResource("input/transactions.xml");
+
+        Jaxb2Marshaller unmarshaller = new Jaxb2Marshaller();
+        unmarshaller.setClassesToBeBound(Transaction2.class);
+
+        return new StaxEventItemReaderBuilder<Transaction2>()
+                .name("transactionItemReader")
+                .resource(transactionFile)
+                .addFragmentRootElements("transaction")
+                .unmarshaller(unmarshaller)
+                .build();
+    }
+
+    @Bean
+    public JdbcBatchItemWriter<Transaction2> transactionItemWriter(DataSource dataSource) {
+        return new JdbcBatchItemWriterBuilder<Transaction2>()
+                .dataSource(dataSource)
+                .sql("INSERT INTO TRANSACTION2 (TRANSACTION_ID, " +
+                        "ACCOUNT_ID, " +
+                        "DESCRIPTION, " +
+                        "CREDIT, " +
+                        "DEBIT, " +
+                        "TIMESTAMP) VALUES (:transactionId, " +
+                        ":accountId, " +
+                        ":description, " +
+                        ":credit, " +
+                        ":debit, " +
+                        ":timestamp)")
+                .beanMapped()
+                .build();
     }
 }
