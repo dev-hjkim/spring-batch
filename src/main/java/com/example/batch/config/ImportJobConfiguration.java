@@ -8,7 +8,9 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.FieldSetMapper;
@@ -52,6 +54,7 @@ public class ImportJobConfiguration {
                 .start(saveStep)
                 .next(importCustomerUpdates())
                 .next(importTransactions())
+                .next(applyTransactions())
                 .build();
     }
 
@@ -262,6 +265,54 @@ public class ImportJobConfiguration {
                         ":debit, " +
                         ":timestamp)")
                 .beanMapped()
+                .build();
+    }
+
+
+    //////////////////////  Step : applyTransactions //////////////////////
+    @Bean
+    public Step applyTransactions() {
+        return this.stepBuilderFactory.get("applyTransactions")
+                .<Transaction2, Transaction2>chunk(100)
+                .reader(applyTransactionReader(null))
+                .writer(applyTransactionWriter(null))
+                .build();
+    }
+
+    @Bean
+    public JdbcCursorItemReader<Transaction2> applyTransactionReader(DataSource dataSource) {
+        return new JdbcCursorItemReaderBuilder<Transaction2>()
+                .name("applyTransactionReader")
+                .dataSource(dataSource)
+                .sql("SELECT transaction_id, " +
+                        "account_id, " +
+                        "description, " +
+                        "credit, " +
+                        "debit, " +
+                        "timestamp " +
+                        "from transaction2 " +
+                        "order by timestamp")
+                .rowMapper((resultSet, i) ->
+                        new Transaction2(
+                                resultSet.getLong("transaction_id"),
+                                resultSet.getLong("account_id"),
+                                resultSet.getString("description"),
+                                resultSet.getBigDecimal("credit"),
+                                resultSet.getBigDecimal("debit"),
+                                resultSet.getTimestamp("timestamp")
+                        ))
+                .build();
+    }
+
+    @Bean
+    public JdbcBatchItemWriter<Transaction2> applyTransactionWriter(DataSource dataSource) {
+        return new JdbcBatchItemWriterBuilder<Transaction2>()
+                .dataSource(dataSource)
+                .sql("UPDATE ACCOUNT " +
+                        "SET BALANCE = BALANCE + :transactionAmount " +
+                        "WHERE ACCOUNT_ID = :accountId")
+                .beanMapped()
+                .assertUpdates(false)
                 .build();
     }
 }
