@@ -10,7 +10,7 @@ public class AppCustomer implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int customerId;
+    private long customerId;
 
     private String firstName;
     private String middleName;
@@ -26,7 +26,30 @@ public class AppCustomer implements Serializable {
     private String workPhone;
     private String notificationPref;
 
-    public int getCustomerId() {
+    public AppCustomer() {}
+
+    public AppCustomer(long customerId, String firstName, String middleName,
+                       String lastName, String address1, String address2,
+                       String city, String state, String postalCode,
+                       String emailAddress, String homePhone, String cellPhone,
+                       String workPhone, String notificationPref) {
+        this.customerId = customerId;
+        this.firstName = firstName;
+        this.middleName = middleName;
+        this.lastName = lastName;
+        this.address1 = address1;
+        this.address2 = address2;
+        this.city = city;
+        this.state = state;
+        this. postalCode = postalCode;
+        this.emailAddress = emailAddress;
+        this.homePhone = homePhone;
+        this.cellPhone = cellPhone;
+        this.workPhone = workPhone;
+        this.notificationPref = notificationPref;
+    }
+
+    public long getCustomerId() {
         return customerId;
     }
 

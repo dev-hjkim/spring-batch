@@ -1,7 +1,10 @@
 package com.example.batch.config;
 
+import com.example.batch.aggregator.StatementLineAggregator;
+import com.example.batch.callback.StatementHeaderCallback;
 import com.example.batch.classifier.CustomerUpdateClassifier;
 import com.example.batch.domain.*;
+import com.example.batch.itemprocessor.AccountItemProcessor;
 import com.example.batch.validator.CustomerItemValidator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -12,7 +15,10 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.FlatFileItemWriter;
+import org.springframework.batch.item.file.MultiResourceItemWriter;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.file.builder.MultiResourceItemWriterBuilder;
 import org.springframework.batch.item.file.mapping.FieldSetMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.file.transform.LineTokenizer;
@@ -25,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 import org.springframework.util.StringUtils;
@@ -47,6 +54,9 @@ public class ImportJobConfiguration {
     @Autowired
     private CustomerItemValidator validator;
 
+    @Autowired
+    private AccountItemProcessor accountItemProcessor;
+
 
     @Bean
     public Job job() throws Exception {
@@ -55,6 +65,7 @@ public class ImportJobConfiguration {
                 .next(importCustomerUpdates())
                 .next(importTransactions())
                 .next(applyTransactions())
+                .next(generateStatements(accountItemProcessor))
                 .build();
     }
 
@@ -310,9 +321,69 @@ public class ImportJobConfiguration {
                 .dataSource(dataSource)
                 .sql("UPDATE ACCOUNT " +
                         "SET BALANCE = BALANCE + :transactionAmount " +
-                        "WHERE ACCOUNT_ID = :accountId")
+                        "WHERE ID = :accountId")
                 .beanMapped()
                 .assertUpdates(false)
+                .build();
+    }
+
+    //////////////////////  Step : generateStatements //////////////////////
+    @Bean
+    public Step generateStatements(AccountItemProcessor itemProcessor) {
+        return this.stepBuilderFactory.get("generateStatements")
+                .<Statement, Statement>chunk(1)
+                .reader(statementItemReader(null))
+                .processor(itemProcessor)
+                .writer(statementItemWriter())
+                .build();
+    }
+
+    @Bean
+    public JdbcCursorItemReader<Statement> statementItemReader(DataSource dataSource) {
+        return new JdbcCursorItemReaderBuilder<Statement>()
+                .name("statementItemReader")
+                .dataSource(dataSource)
+                .sql("SELECT * FROM APP_CUSTOMER")
+                .rowMapper((resultSet, i) -> {
+                    AppCustomer customer =
+                            new AppCustomer(resultSet.getLong("customer_id"),
+                                    resultSet.getString("first_name"),
+                                    resultSet.getString("middle_name"),
+                                    resultSet.getString("last_name"),
+                                    resultSet.getString("address1"),
+                                    resultSet.getString("address2"),
+                                    resultSet.getString("city"),
+                                    resultSet.getString("state"),
+                                    resultSet.getString("postal_code"),
+                                    resultSet.getString("email_address"),
+                                    resultSet.getString("home_phone"),
+                                    resultSet.getString("cell_phone"),
+                                    resultSet.getString("work_phone"),
+                                    resultSet.getString("notification_pref"));
+                    return new Statement(customer);
+                }).build();
+    }
+
+    @Bean
+    public FlatFileItemWriter<Statement> individualStatementItemWriter() {
+        FlatFileItemWriter<Statement> itemWriter = new FlatFileItemWriter<>();
+
+        itemWriter.setName("individualStatementItemWriter");
+        itemWriter.setHeaderCallback(new StatementHeaderCallback());
+        itemWriter.setLineAggregator(new StatementLineAggregator());
+
+        return itemWriter;
+    }
+
+    @Bean
+    public MultiResourceItemWriter<Statement> statementItemWriter() {
+        Resource outputDir = new FileSystemResource("output/statement");
+
+        return new MultiResourceItemWriterBuilder<Statement>()
+                .name("statementItemWriter")
+                .resource(outputDir)
+                .itemCountLimitPerResource(1)
+                .delegate(individualStatementItemWriter())
                 .build();
     }
 }
