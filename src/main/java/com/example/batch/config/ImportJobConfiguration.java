@@ -58,16 +58,16 @@ public class ImportJobConfiguration {
     private AccountItemProcessor accountItemProcessor;
 
 
-    @Bean
-    public Job job() throws Exception {
-        return this.jobBuilderFactory.get("importJob")
-                .start(saveStep)
-                .next(importCustomerUpdates())
-                .next(importTransactions())
-                .next(applyTransactions())
-                .next(generateStatements(accountItemProcessor))
-                .build();
-    }
+//    @Bean
+//    public Job job() throws Exception {
+//        return this.jobBuilderFactory.get("importJob")
+//                .start(saveStep)
+//                .next(importCustomerUpdates())
+//                .next(importTransactions())
+//                .next(applyTransactions())
+//                .next(generateStatements(accountItemProcessor))
+//                .build();
+//    }
 
     //////////////////////  Step : importCustomerUpdates //////////////////////
 
