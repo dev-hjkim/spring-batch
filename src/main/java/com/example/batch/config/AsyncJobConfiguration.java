@@ -5,8 +5,9 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.job.builder.FlowBuilder;
-import org.springframework.batch.core.job.flow.Flow;
+import org.springframework.batch.integration.async.AsyncItemProcessor;
+import org.springframework.batch.integration.async.AsyncItemWriter;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -22,9 +23,10 @@ import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 
 import javax.sql.DataSource;
+import java.util.concurrent.Future;
 
 @Configuration
-public class ParallelStepsJobConfiguration {
+public class AsyncJobConfiguration {
     @Autowired
     private JobBuilderFactory jobBuilderFactory;
 
@@ -69,6 +71,25 @@ public class ParallelStepsJobConfiguration {
     }
 
     @Bean
+    public AsyncItemProcessor<Transaction3, Transaction3> asyncItemProcessor() {
+        AsyncItemProcessor<Transaction3, Transaction3> processor =
+                new AsyncItemProcessor<>();
+
+        processor.setDelegate(processor());
+        processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
+
+        return processor;
+    }
+
+    @Bean
+    public ItemProcessor<Transaction3, Transaction3> processor() {
+        return (transaction) -> {
+            Thread.sleep(5);
+            return transaction;
+        };
+    }
+
+    @Bean
     public JdbcBatchItemWriter<Transaction3> writer(DataSource dataSource) {
         return new JdbcBatchItemWriterBuilder<Transaction3>()
                 .dataSource(dataSource)
@@ -79,39 +100,28 @@ public class ParallelStepsJobConfiguration {
     }
 
     @Bean
-    public Step step1() {
-        return this.stepBuilderFactory.get("step1")
-                .<Transaction3, Transaction3>chunk(100)
+    public AsyncItemWriter<Transaction3> asyncItemWriter() {
+        AsyncItemWriter<Transaction3> writer = new AsyncItemWriter<>();
+
+        writer.setDelegate(writer(null));
+
+        return writer;
+    }
+
+    @Bean
+    public Step step1async() {
+        return this.stepBuilderFactory.get("step1async")
+                .<Transaction3, Future<Transaction3>>chunk(100)
                 .reader(fileTransactionReader())
-                .writer(writer(null))
-                .taskExecutor(new SimpleAsyncTaskExecutor())
+                .processor(asyncItemProcessor())
+                .writer(asyncItemWriter())
                 .build();
     }
 
     @Bean
-    public Step step2() {
-        return this.stepBuilderFactory.get("step2")
-                .<Transaction3, Transaction3>chunk(100)
-                .reader(xmlTransactionReader())
-                .writer(writer(null))
-                .build();
-    }
-
-    @Bean
-    public Job parallelStepsJob() {
-        Flow secondFlow = new FlowBuilder<Flow>("secondFlow")
-                .start(step2())
-                .build();
-
-        Flow parallelFlow = new FlowBuilder<Flow>("parallelFlow")
-                .start(step1())
-                .split(new SimpleAsyncTaskExecutor())
-                .add(secondFlow)
-                .build();
-
-        return this.jobBuilderFactory.get("parallelStepsJob")
-                .start(parallelFlow)
-                .end()
+    public Job asyncJob() {
+        return this.jobBuilderFactory.get("asyncJob")
+                .start(step1async())
                 .build();
     }
 }
