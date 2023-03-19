@@ -5,25 +5,22 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.integration.async.AsyncItemProcessor;
-import org.springframework.batch.integration.async.AsyncItemWriter;
-import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.core.configuration.annotation.StepScope;
+import org.springframework.batch.core.partition.support.MultiResourcePartitioner;
+import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.xml.StaxEventItemReader;
-import org.springframework.batch.item.xml.builder.StaxEventItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.Resource;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
-import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 
 import javax.sql.DataSource;
-import java.util.concurrent.Future;
 
 @Configuration
 public class AsyncJobConfiguration {
@@ -34,8 +31,11 @@ public class AsyncJobConfiguration {
     private StepBuilderFactory stepBuilderFactory;
 
     @Bean
-    public FlatFileItemReader<Transaction3> fileTransactionReader() {
-        Resource resource = new ClassPathResource("input/bigtransactions.csv");
+    @StepScope
+    public FlatFileItemReader<Transaction3> fileTransactionReader(
+            @Value("#{stepExecutionContext['file']}") Resource resource
+    ) {
+//        Resource resource = new ClassPathResource("input/bigtransactions.csv");
 
         return new FlatFileItemReaderBuilder<Transaction3>()
                 .name("transactionItemReader")
@@ -56,37 +56,26 @@ public class AsyncJobConfiguration {
     }
 
     @Bean
-    public StaxEventItemReader<Transaction3> xmlTransactionReader() {
-        Jaxb2Marshaller unmarshaller = new Jaxb2Marshaller();
-        unmarshaller.setClassesToBeBound(Transaction3.class);
+    @StepScope
+    public MultiResourcePartitioner partitioner(
+            @Value("#{jobParameters['inputFiles']}") Resource[] resources
+    ) {
+        MultiResourcePartitioner partitioner = new MultiResourcePartitioner();
 
-        Resource resource = new ClassPathResource("input/bigtransactions.xml");
+        partitioner.setKeyName("file");
+        partitioner.setResources(resources);
 
-        return new StaxEventItemReaderBuilder<Transaction3>()
-                .name("xmlFileTransactionReader")
-                .resource(resource)
-                .addFragmentRootElements("transaction")
-                .unmarshaller(unmarshaller)
-                .build();
+        return partitioner;
     }
 
     @Bean
-    public AsyncItemProcessor<Transaction3, Transaction3> asyncItemProcessor() {
-        AsyncItemProcessor<Transaction3, Transaction3> processor =
-                new AsyncItemProcessor<>();
+    public TaskExecutorPartitionHandler partitionHandler() {
+        TaskExecutorPartitionHandler partitionHandler = new TaskExecutorPartitionHandler();
 
-        processor.setDelegate(processor());
-        processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
+        partitionHandler.setStep(step1());
+        partitionHandler.setTaskExecutor(new SimpleAsyncTaskExecutor());
 
-        return processor;
-    }
-
-    @Bean
-    public ItemProcessor<Transaction3, Transaction3> processor() {
-        return (transaction) -> {
-            Thread.sleep(5);
-            return transaction;
-        };
+        return partitionHandler;
     }
 
     @Bean
@@ -100,28 +89,26 @@ public class AsyncJobConfiguration {
     }
 
     @Bean
-    public AsyncItemWriter<Transaction3> asyncItemWriter() {
-        AsyncItemWriter<Transaction3> writer = new AsyncItemWriter<>();
-
-        writer.setDelegate(writer(null));
-
-        return writer;
-    }
-
-    @Bean
-    public Step step1async() {
-        return this.stepBuilderFactory.get("step1async")
-                .<Transaction3, Future<Transaction3>>chunk(100)
-                .reader(fileTransactionReader())
-                .processor(asyncItemProcessor())
-                .writer(asyncItemWriter())
+    public Step step1() {
+        return this.stepBuilderFactory.get("step1")
+                .<Transaction3, Transaction3>chunk(100)
+                .reader(fileTransactionReader(null))
+                .writer(writer(null))
                 .build();
     }
 
     @Bean
-    public Job asyncJob() {
-        return this.jobBuilderFactory.get("asyncJob")
-                .start(step1async())
+    public Step partitionedMaster() {
+        return this.stepBuilderFactory.get("step1")
+                .partitioner(step1().getName(), partitioner(null))
+                .partitionHandler(partitionHandler())
+                .build();
+    }
+
+    @Bean
+    public Job partitionedJob() {
+        return this.jobBuilderFactory.get("partitionedJob")
+                .start(partitionedMaster())
                 .build();
     }
 }
