@@ -54,6 +54,10 @@ dependencies {
 
     implementation 'org.springframework.batch:spring-batch-integration'
 
+    implementation 'org.springframework.cloud:spring-cloud-starter-task:2.4.6'
+    implementation 'org.springframework.cloud:spring-cloud-deployer-local:2.8.2'
+
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.batch:spring-batch-test'
 }
